@@ -1,0 +1,28 @@
+name: cadebit
+
+services:
+  ai:
+    build:
+      context: services/ai
+    environment:
+      CADEBIT_ENVIRONMENT: production
+      AI_SERVICE_HOST: 0.0.0.0
+      AI_SERVICE_PORT: 8000
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: apps/web
+    environment:
+      AI_SERVICE_URL: http://ai:8000
+      SESSION_SECRET: compose-development-secret-change-before-production
+      SESSION_COOKIE_SECURE: "false"
+      DEV_AUTH_NAME: CadeBit Student
+      DEV_AUTH_EMAIL: student@cadebit.local
+      DEV_AUTH_PASSWORD: cadebit-local
+    depends_on:
+      ai:
+        condition: service_healthy
+    ports:
+      - "3000:3000"

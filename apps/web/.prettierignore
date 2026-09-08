@@ -1,0 +1,8 @@
+.next/
+coverage/
+node_modules/
+package-lock.json
+
+# Generated agent instructions and compatibility pointer.
+AGENTS.md
+CLAUDE.md
