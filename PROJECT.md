@@ -1,0 +1,999 @@
+# CadeBit
+
+CadeBit is a learning platform that turns course material into an
+adaptive study system. The goal is to build a polished product for real
+students---not just a demo---where users can organize courses, study
+from course-specific material, track mastery, and receive AI-generated
+learning experiences grounded in the material they are actually
+responsible for.
+
+This document reflects the current project direction. Features
+intentionally deferred are listed near the end.
+
+## 1. Product Goal
+
+CadeBit should help a student answer:
+
+-   What am I supposed to know?
+-   What should I study next?
+-   How well do I actually know each topic?
+-   Am I on pace for my target completion/exam date?
+-   Can I get a useful explanation, summary, quiz, or review session
+    grounded in my course material?
+
+The product should support both:
+
+1.  **Shared/group courses** --- multiple students studying the same
+    course structure and reusable material.
+2.  **Independent courses** --- a private course/syllabus created for
+    one student's needs.
+
+The architecture should be production-minded: authenticated users,
+persistent data, permissions, reusable course knowledge, reliable AI
+retrieval, evaluation, observability, and deployable services.
+
+------------------------------------------------------------------------
+
+## 2. Current Scope
+
+### Build now
+
+-   Web application
+-   User authentication and accounts
+-   Courses and course groups
+-   Topics and subtopics
+-   Course materials
+-   Student progress/mastery tracking
+-   Study schedule and target dates
+-   Time-spent and streak tracking
+-   AI-generated summaries/explanations/questions
+-   RAG over course material
+-   Agentic study workflows where they provide real product value
+-   Backend APIs
+-   PostgreSQL data model
+-   Vector search / embeddings
+-   Production deployment
+-   Testing, logging, monitoring, and evaluation
+
+### Explicitly deferred
+
+For now, do **not** spend development time on:
+
+-   Browser extension
+-   Mobile app
+-   Push/mobile notifications
+
+**Email notifications / daily TLDR delivery come last**, after the core
+web product works well.
+
+------------------------------------------------------------------------
+
+## 3. Core Product Model
+
+The conceptual data split is **GLOBAL/shared data** versus
+**user/course-local data**. This is a useful product boundary, although
+it does not necessarily mean separate databases.
+
+### Global / reusable data
+
+#### Users
+
+Account-level identity and authentication information.
+
+#### Course Groups
+
+A shared course instance that multiple users can join.
+
+Examples:
+
+-   UIUC ECE 313 --- Fall 2026
+-   A study group following a common syllabus
+
+A group has members and roles.
+
+#### Reusable Course Material
+
+Material that can be shared/reused independently of a particular group.
+
+This should remain separate from a course group because:
+
+-   multiple groups may use the same source material;
+-   a student may study independently using similar material;
+-   two course instances may cover slightly different topics or
+    schedules despite sharing sources.
+
+Possible material:
+
+-   syllabus
+-   lecture slides
+-   notes
+-   textbook excerpts/references
+-   assignments
+-   study guides
+-   instructor-provided documents
+-   other uploaded resources
+
+Material is also the primary source corpus for RAG.
+
+------------------------------------------------------------------------
+
+## 4. Course-Level Data
+
+A course can be a shared/group course or an independent/private course.
+
+### Course
+
+Contains:
+
+-   name
+-   description
+-   owner/admin
+-   members
+-   member roles
+-   topic hierarchy
+-   associated course materials
+-   schedule
+-   target completion/exam date
+-   progress configuration
+
+A course with only one member can simply have that user as its admin.
+
+### Roles
+
+At minimum:
+
+-   **Admin**
+-   **Member**
+
+Admins can modify shared course structure such as topics/subtopics and
+course configuration.
+
+Members should not be able to silently modify the canonical structure
+for everyone.
+
+### Topics and Subtopics
+
+Courses have a hierarchy such as:
+
+``` text
+ECE 313
+├── Probability Foundations
+│   ├── Sample Spaces
+│   ├── Conditional Probability
+│   └── Bayes' Rule
+├── Random Variables
+│   ├── PMFs
+│   ├── PDFs
+│   └── CDFs
+└── ...
+```
+
+Topics/subtopics become the organizing units for:
+
+-   progress
+-   mastery/confidence
+-   AI retrieval
+-   quizzes
+-   study scheduling
+-   completion
+-   analytics
+
+### Independent Course
+
+A user can create a private course and syllabus that does not need to
+become global/shared data.
+
+This allows CadeBit to work even when no existing course group exists.
+
+------------------------------------------------------------------------
+
+## 5. User Learning State
+
+Each user needs personalized state layered on top of a course.
+
+### Membership
+
+Tracks which courses a user belongs to and their role.
+
+### Mastery / Confidence
+
+Track confidence at course, topic, and subtopic levels.
+
+Two signals are useful:
+
+1.  **AI/system assessment**
+2.  **User self-assessment**
+
+The user's disagreement with the AI should not destroy the model's
+assessment. Store the signals separately so the UI and scheduling logic
+can use both.
+
+Possible inputs to system mastery:
+
+-   quiz correctness
+-   question difficulty
+-   repeated performance
+-   recency
+-   hints used
+-   time to answer
+-   review performance
+
+Do not lock the exact mastery formula too early. Preserve the raw
+evidence needed to improve it later.
+
+### Completion
+
+Track completed topics/subtopics separately from confidence where
+useful.
+
+"Completed" and "mastered" are not the same thing.
+
+### Schedule
+
+A user can have a personalized schedule even inside a shared course.
+
+Example:
+
+> Finish ECE 313 two weeks earlier.
+
+Changing that target should recompute that user's study plan without
+changing everyone else's course schedule.
+
+### Time Spent
+
+Track study activity at useful granularity:
+
+-   overall
+-   course
+-   topic/subtopic
+-   study session
+
+### Streaks
+
+Support:
+
+-   overall streak
+-   course-specific streak
+
+Streaks should ultimately derive from activity records rather than
+existing only as mutable counters.
+
+### Leaderboard
+
+Shared courses may expose a leaderboard.
+
+Solo courses do not need one.
+
+Leaderboard metrics should be designed carefully so CadeBit rewards
+productive learning rather than meaningless app usage.
+
+------------------------------------------------------------------------
+
+## 6. Web App / UI Direction
+
+The web app is the primary product surface.
+
+The design direction discussed so far is a dashboard-oriented student
+experience with navigation around courses, progress, schedules, and
+learning activity.
+
+Likely primary surfaces:
+
+### Dashboard
+
+At-a-glance:
+
+-   today's study plan
+-   current courses
+-   progress
+-   streak
+-   upcoming targets
+-   recommended next action
+
+### Course Page
+
+Central workspace for a course:
+
+-   progress
+-   topics/subtopics
+-   course material
+-   schedule
+-   target date
+-   study actions
+-   mastery/confidence
+-   group information where applicable
+
+### Topic / Study Experience
+
+A focused learning surface for:
+
+-   explanation
+-   summary
+-   retrieval-grounded Q&A
+-   practice questions
+-   quizzes
+-   review
+
+### Course Management
+
+For admins:
+
+-   manage members
+-   manage topic hierarchy
+-   attach/manage material
+-   configure shared course information
+
+### Account / Settings
+
+User/account preferences and eventually notification preferences.
+
+The frontend should feel like a real consumer SaaS product, not an admin
+panel wrapped around an LLM.
+
+------------------------------------------------------------------------
+
+## 7. AI Architecture
+
+AI should be part of the learning system rather than a generic chatbot
+bolted onto the app.
+
+There are two related concepts:
+
+-   **RAG** provides grounded course knowledge.
+-   **Agentic workflows** decide what actions/tools to use to complete a
+    learning task.
+
+### RAG Pipeline
+
+High-level flow:
+
+``` text
+Course material
+      ↓
+Parse / normalize
+      ↓
+Chunk
+      ↓
+Metadata enrichment
+      ↓
+Embeddings
+      ↓
+Vector index
+      ↓
+Retrieve relevant chunks
+      ↓
+Optional reranking/filtering
+      ↓
+LLM + retrieved evidence
+      ↓
+Grounded learning response
+```
+
+Each chunk should retain metadata such as:
+
+-   source/material ID
+-   course/material association
+-   page/section
+-   topic/subtopic where known
+-   document type
+-   chunk position
+
+This lets the system filter retrieval and provide useful source
+references.
+
+### Retrieval
+
+A request should not search every document in CadeBit.
+
+Retrieval needs permission-aware scoping such as:
+
+``` text
+user
+  → authorized course
+  → relevant material
+  → topic/subtopic filter when useful
+  → semantic retrieval
+  → response
+```
+
+This is both a relevance and security requirement.
+
+### Agentic AI
+
+Use agents/workflows when a task genuinely requires multiple decisions
+or tools.
+
+Example adaptive study flow:
+
+``` text
+Student starts study session
+        ↓
+Read course + user state
+        ↓
+Determine weak / due / important topics
+        ↓
+Retrieve relevant course material
+        ↓
+Choose learning action
+   ┌────┼─────────┐
+explain quiz    review
+   └────┼─────────┘
+        ↓
+Evaluate response
+        ↓
+Update learning evidence
+        ↓
+Choose next action
+```
+
+Potential AI tools:
+
+-   retrieve course material
+-   fetch topic hierarchy
+-   read user mastery
+-   read schedule/deadlines
+-   generate explanation
+-   generate questions
+-   grade structured answers
+-   record assessment evidence
+-   recommend next topic
+-   adjust a personalized study plan
+
+Avoid making every LLM call an "agent." Simple deterministic workflows
+should remain normal application code.
+
+------------------------------------------------------------------------
+
+## 8. AI Evaluation
+
+Because CadeBit relies on retrieval and generated learning content,
+evaluation should be a first-class engineering concern.
+
+### Retrieval Evaluation
+
+Create a small labeled evaluation set of questions where the expected
+supporting chunks/documents are known.
+
+Track metrics such as:
+
+-   Recall@K
+-   Precision@K
+-   MRR / ranking quality
+-   whether the required source appeared in retrieved context
+
+### Generation Evaluation
+
+Evaluate:
+
+-   factual grounding in retrieved material
+-   relevance
+-   completeness
+-   unsupported claims
+-   citation/source correctness
+-   quality of generated questions
+-   grading consistency
+
+Maintain regression tests so retrieval/prompt/model changes can be
+compared rather than judged only by feel.
+
+------------------------------------------------------------------------
+
+## 9. Proposed Technical Stack
+
+The stack is intentionally practical and gives the project meaningful
+full-stack, backend, AI, database, and cloud engineering depth without
+forcing technologies purely for resume keywords.
+
+### Frontend
+
+-   **Next.js**
+-   **React**
+-   **TypeScript**
+-   Tailwind CSS
+-   component library as appropriate
+
+Responsibilities:
+
+-   web UI
+-   routing
+-   authenticated product experience
+-   dashboards/course pages
+-   server/client rendering where appropriate
+-   calls to backend services
+
+### Core Application Backend
+
+The web application needs a conventional backend/API layer for:
+
+-   users
+-   courses
+-   memberships
+-   topics
+-   progress
+-   schedules
+-   permissions
+-   material metadata
+-   study activity
+
+This can live in the Next.js/backend ecosystem where it makes sense.
+
+### Python AI Service
+
+Use **Python + FastAPI** as a separate service for AI/ML-heavy
+functionality.
+
+FastAPI is useful because CadeBit's AI pipeline will naturally use
+Python libraries.
+
+Responsibilities can include:
+
+-   document ingestion
+-   parsing/chunking
+-   embedding generation
+-   retrieval
+-   reranking
+-   RAG orchestration
+-   question generation
+-   answer evaluation/grading
+-   mastery-related ML/heuristics
+-   AI evaluation jobs
+
+Conceptually:
+
+``` text
+Next.js Web App
+      │
+      ├── application/database operations
+      │
+      └── HTTP/API
+             ↓
+       FastAPI AI Service
+             │
+       ┌─────┴─────┐
+       ↓           ↓
+   PostgreSQL     LLM API
+   / vectors
+```
+
+The point of FastAPI is **not** to split the backend merely to claim
+microservices. It gives the Python AI subsystem a clean boundary while
+the rest of the product remains straightforward.
+
+### Database
+
+**PostgreSQL**
+
+Use relational tables for core application state.
+
+Likely entities include:
+
+-   users
+-   courses
+-   course_memberships
+-   topics
+-   materials
+-   material-course relationships
+-   user_topic_progress
+-   assessments
+-   study_sessions
+-   schedules / schedule items
+-   activity events
+
+### Vector Search
+
+Start with **pgvector** in PostgreSQL unless scale or retrieval
+requirements justify a dedicated vector database later.
+
+Benefits:
+
+-   fewer moving pieces
+-   relational metadata and vectors close together
+-   straightforward filtering by course/material/topic
+-   enough capability for the initial product
+
+### AI / LLM
+
+Use the **OpenAI API** for model and embedding capabilities where
+appropriate.
+
+Keep model access behind an application abstraction so prompts, models,
+evaluation, and providers can evolve without leaking implementation
+details throughout the codebase.
+
+### Background Work
+
+Document ingestion and other expensive tasks should not block normal web
+requests.
+
+Examples:
+
+-   parsing uploads
+-   chunking
+-   embedding
+-   bulk AI generation
+-   evaluation runs
+
+Introduce a queue/background-worker system when these workflows require
+it rather than prematurely building distributed infrastructure.
+
+### Storage
+
+Uploaded original course documents should live in object/blob storage
+rather than directly in PostgreSQL.
+
+PostgreSQL stores metadata and references to the objects.
+
+------------------------------------------------------------------------
+
+## 10. Service Boundaries
+
+A useful initial architecture is a **modular application plus one
+focused Python AI service**, not a fleet of microservices.
+
+``` text
+┌─────────────────────────────────────────────┐
+│                 Web Browser                 │
+└─────────────────────┬───────────────────────┘
+                      │
+                      ↓
+┌─────────────────────────────────────────────┐
+│          Next.js / React Web App            │
+│                                             │
+│ UI • Auth • Product APIs • Permissions      │
+│ Courses • Progress • Schedules • Groups     │
+└──────────────┬──────────────────┬───────────┘
+               │                  │
+               ↓                  ↓
+      ┌────────────────┐   ┌─────────────────┐
+      │   PostgreSQL   │   │ FastAPI AI      │
+      │   + pgvector   │←──│ Service         │
+      └────────────────┘   └────────┬────────┘
+               ↑                    │
+               │                    ↓
+      ┌────────────────┐   ┌─────────────────┐
+      │ Object Storage │   │ OpenAI / Models │
+      └────────────────┘   └─────────────────┘
+```
+
+Asynchronous workers can be added around ingestion/evaluation when
+needed.
+
+------------------------------------------------------------------------
+
+## 11. Authentication and Authorization
+
+Authentication identifies the user.
+
+Authorization determines what the user can access or modify.
+
+Important checks include:
+
+-   user can access the requested course;
+-   member can read shared course content;
+-   only admins can modify canonical course structure;
+-   users can only modify their own progress/self-assessment/schedule;
+-   retrieval can only use material the user is authorized to access.
+
+Authorization must be enforced server-side, not only by hiding UI
+controls.
+
+------------------------------------------------------------------------
+
+## 12. Suggested Repository Structure
+
+A monorepo is a reasonable starting point.
+
+``` text
+cadebit/
+├── apps/
+│   └── web/                 # Next.js web app
+├── services/
+│   └── ai/                  # FastAPI Python service
+│       ├── app/
+│       │   ├── api/
+│       │   ├── rag/
+│       │   ├── ingestion/
+│       │   ├── evaluation/
+│       │   ├── learning/
+│       │   └── main.py
+│       └── tests/
+├── packages/
+│   └── ...                  # shared TS packages if needed
+├── infra/
+│   └── ...                  # deployment/infrastructure config
+├── docs/
+│   └── ...                  # architecture/design docs
+├── PROJECT.md
+└── README.md
+```
+
+Do not create abstractions/packages merely because the directory exists.
+Add shared packages when real reuse appears.
+
+------------------------------------------------------------------------
+
+## 13. API Direction
+
+The product should expose clean REST-style interfaces between services.
+
+Example application endpoints:
+
+``` text
+GET    /courses
+POST   /courses
+GET    /courses/{course_id}
+POST   /courses/{course_id}/members
+GET    /courses/{course_id}/topics
+POST   /courses/{course_id}/topics
+
+GET    /courses/{course_id}/progress
+PATCH  /topics/{topic_id}/self-assessment
+
+POST   /study-sessions
+PATCH  /study-sessions/{id}
+```
+
+Example FastAPI AI endpoints:
+
+``` text
+POST /ingest
+POST /retrieve
+POST /answer
+POST /generate-quiz
+POST /grade
+POST /study/recommend-next
+```
+
+These are directional, not a frozen API contract.
+
+------------------------------------------------------------------------
+
+## 14. Deployment / Hosting Direction
+
+Deploy the system as real internet-facing software rather than keeping
+it as a local demo.
+
+The deployment should provide:
+
+-   web hosting for Next.js
+-   a containerized FastAPI service
+-   managed PostgreSQL
+-   object storage
+-   secrets/environment management
+-   logs/monitoring
+-   CI/CD from GitHub
+
+Keep the first production deployment simple. Do not introduce Kubernetes
+solely for the sake of using Kubernetes.
+
+Docker is useful for reproducible local and deployed service
+environments, particularly for the FastAPI service.
+
+Cloud/hosting choices should optimize for:
+
+1.  reliable deployment,
+2.  low student-project cost,
+3.  good developer experience,
+4.  enough production realism to demonstrate actual backend/cloud
+    engineering.
+
+The exact provider can remain replaceable until implementation requires
+a provider-specific decision.
+
+------------------------------------------------------------------------
+
+## 15. Engineering Quality
+
+CadeBit is intended to be a polished software product serving actual
+users, so the project should include more than feature code.
+
+### Testing
+
+-   frontend/component tests where valuable
+-   backend unit tests
+-   API/integration tests
+-   permission tests
+-   RAG/retrieval evaluation suite
+-   end-to-end tests for critical user flows
+
+### Observability
+
+At minimum:
+
+-   structured logs
+-   request/error tracking
+-   AI latency
+-   token/model usage
+-   retrieval latency
+-   ingestion failures
+
+Later:
+
+-   traces across web → AI service → database/model
+-   product analytics
+
+### Reliability
+
+Design for:
+
+-   failed uploads
+-   duplicate ingestion
+-   LLM/API failures
+-   retryable background jobs
+-   idempotent processing where appropriate
+-   partial AI outages without corrupting user data
+
+------------------------------------------------------------------------
+
+## 16. Security / Privacy Basics
+
+Course material and student progress can be private.
+
+Required principles:
+
+-   server-side authorization
+-   secure authentication/session handling
+-   scoped retrieval
+-   validate uploads
+-   secrets only in server environments
+-   never expose model/API keys to the browser
+-   minimize unnecessary personal data
+-   clearly distinguish shared and private course resources
+
+------------------------------------------------------------------------
+
+## 17. What We Are Deliberately Avoiding
+
+CadeBit should demonstrate serious engineering without becoming a
+resume-keyword collection.
+
+Do not add technology without a product/engineering reason.
+
+Examples:
+
+-   no Kubernetes until deployment complexity warrants it;
+-   no dozens of microservices;
+-   no dedicated vector database until pgvector becomes limiting;
+-   no "agent" around every model call;
+-   no blockchain;
+-   no complex distributed system just to say the project is
+    distributed;
+-   no mobile/extension work while the core product is unfinished.
+
+Technologies like MCP can be considered later if CadeBit develops a
+genuine need to expose or consume standardized external tools/context.
+It is not currently a requirement.
+
+------------------------------------------------------------------------
+
+## 18. Development Priorities
+
+A reasonable implementation order:
+
+1.  **Project foundation**
+    -   repo structure
+    -   Next.js app
+    -   PostgreSQL
+    -   authentication
+    -   local development setup
+2.  **Core course model**
+    -   users
+    -   courses
+    -   memberships/roles
+    -   topics/subtopics
+    -   basic course UI
+3.  **Learning state**
+    -   progress
+    -   confidence/self-assessment
+    -   study activity
+    -   target dates/schedules
+4.  **FastAPI AI service**
+    -   service skeleton
+    -   health/API contract
+    -   connection to web app
+    -   model client abstraction
+5.  **Course material ingestion**
+    -   uploads
+    -   object storage
+    -   parsing
+    -   chunks
+    -   embeddings
+    -   pgvector
+6.  **RAG study features**
+    -   retrieval
+    -   grounded Q&A/explanations
+    -   summaries
+    -   source references
+7.  **Adaptive learning**
+    -   quizzes
+    -   grading
+    -   assessment evidence
+    -   next-topic recommendation
+    -   mastery updates
+8.  **Evaluation**
+    -   retrieval test set
+    -   generation quality checks
+    -   regression evaluation
+9.  **Production hardening**
+    -   tests
+    -   observability
+    -   queues/workers where necessary
+    -   CI/CD
+    -   deployment
+    -   performance/security cleanup
+10. **Email TLDR / notifications**
+    -   only after the core experience is solid
+11. **Future surfaces**
+    -   browser extension
+    -   mobile app
+    -   push notifications
+
+------------------------------------------------------------------------
+
+## 19. Longer-Term Product Ideas
+
+These are part of the broader CadeBit vision but are not current
+implementation priorities.
+
+### Daily TLDR
+
+At a chosen time, generate a short review of material covered that
+day---roughly something a student could read during a bus ride home.
+
+Eventually delivery could include email and other channels.
+
+### Doomscroll Interruption Browser Extension
+
+A user selects distracting sites and an interval.
+
+After spending a configured amount of time on one of those sites,
+CadeBit opens a short learning interruption such as:
+
+-   quick lesson
+-   recall question
+-   review prompt
+
+After completing it, the user returns to what they were doing.
+
+This is conceptually connected to CadeBit's course/progress system but
+intentionally deferred.
+
+### Mobile Experience
+
+A future mobile app could provide study sessions, quick reviews, and
+notifications using the same backend learning state.
+
+------------------------------------------------------------------------
+
+## 20. Project Success Criteria
+
+CadeBit is successful as an engineering project when a real student can:
+
+1.  create an account;
+2.  create or join a course;
+3.  see a meaningful topic hierarchy;
+4.  upload/use course material;
+5.  study with AI that is grounded in that material;
+6.  complete questions/reviews;
+7.  build a persistent mastery profile;
+8.  see what to study next and why;
+9.  adjust a target date and receive an updated plan;
+10. return later and continue from persistent state.
+
+It is successful as a **product** when those capabilities form a fast,
+understandable, trustworthy experience students would actually choose to
+keep using.
+
+------------------------------------------------------------------------
+
+## 21. Current Architecture Principle
+
+The guiding architecture principle is:
+
+> **Keep ordinary product logic deterministic, use retrieval to give AI
+> the right course context, and use agentic behavior only where adaptive
+> multi-step decision-making improves the student's learning
+> experience.**
+
+Build the smallest architecture that can serve real users well, measure
+it, and add complexity only when the product creates a reason for it.
