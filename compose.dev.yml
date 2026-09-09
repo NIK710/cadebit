@@ -1,0 +1,52 @@
+services:
+  ai:
+    image: cadebit-ai-dev
+    command:
+      - python
+      - -m
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --reload
+    environment:
+      CADEBIT_ENVIRONMENT: development
+      WATCHFILES_FORCE_POLLING: "true"
+    volumes:
+      - type: bind
+        source: ./services/ai
+        target: /app
+
+  migrate:
+    volumes:
+      - type: bind
+        source: ./apps/web
+        target: /app
+      - type: volume
+        target: /app/node_modules
+
+  web:
+    image: cadebit-web-dev
+    build:
+      context: apps/web
+      target: development
+    command:
+      - npm
+      - run
+      - dev
+      - --
+      - --hostname
+      - 0.0.0.0
+    environment:
+      NODE_ENV: development
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - type: bind
+        source: ./apps/web
+        target: /app
+      - type: volume
+        target: /app/node_modules
+      - type: volume
+        target: /app/.next

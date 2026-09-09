@@ -9,6 +9,17 @@ FROM dependencies AS migration
 COPY . .
 CMD ["npm", "run", "db:migrate"]
 
+FROM dependencies AS development
+
+ENV NODE_ENV=development
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+
+COPY . .
+EXPOSE 3000
+
+CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0"]
+
 FROM node:22-alpine AS builder
 
 ENV DATABASE_URL=postgresql://build:build@127.0.0.1:5432/build

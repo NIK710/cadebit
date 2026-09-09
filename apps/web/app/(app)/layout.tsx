@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { requireSession } from "@/lib/session";
 
 import { AppShell } from "./app-shell";
-import { CourseProvider } from "./course-provider";
 
 export default async function AuthenticatedLayout({
   children,
@@ -12,9 +11,5 @@ export default async function AuthenticatedLayout({
 }) {
   const session = await requireSession();
 
-  return (
-    <CourseProvider userId={session.userId}>
-      <AppShell user={session}>{children}</AppShell>
-    </CourseProvider>
-  );
+  return <AppShell user={session}>{children}</AppShell>;
 }

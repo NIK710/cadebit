@@ -1,0 +1,3 @@
+ALTER TABLE "courses" ADD COLUMN "join_code" char(6);--> statement-breakpoint
+CREATE UNIQUE INDEX "courses_join_code_idx" ON "courses" USING btree ("join_code");--> statement-breakpoint
+ALTER TABLE "courses" ADD CONSTRAINT "courses_join_code_matches_type" CHECK (("courses"."type" = 'shared' and "courses"."join_code" ~ '^[A-HJ-NP-Z2-9]{6}$') or ("courses"."type" = 'independent' and "courses"."join_code" is null));

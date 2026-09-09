@@ -79,6 +79,12 @@ Create an account at <http://localhost:3000/signup>, then use those credentials
 on the login page. Better Auth stores users, password credentials, and sessions
 in PostgreSQL.
 
+Course management is also PostgreSQL-backed. Students can create private
+independent courses or shared courses. A shared-course admin receives a unique
+six-character join code to give to other students. Topic structure is editable
+only by admins; target dates, completion, confidence, and study activity remain
+specific to each member.
+
 ## Quality checks
 
 Run the repository checks from the project root:
@@ -96,8 +102,8 @@ cd apps/web
 npm run db:check
 ```
 
-With the local database running, execute the database-backed authentication
-test with `npm run test:integration` from `apps/web`.
+With the local database running, execute the database-backed authentication and
+course authorization tests with `npm run test:integration` from `apps/web`.
 
 Apply automatic formatting and safe lint fixes with:
 
@@ -113,6 +119,48 @@ npm run build
 ```
 
 ## Docker
+
+For containerized development with Next.js hot reload and Uvicorn reload, use
+the development override:
+
+```bash
+docker compose -f compose.yaml -f compose.dev.yml up --build
+```
+
+Changes under `apps/web/app`, `apps/web/lib`, and other mounted web source paths
+reload through the Next.js development server. Python changes under
+`services/ai/app` restart Uvicorn automatically. Drizzle migration files are
+also mounted into the one-shot migration service; after adding a migration,
+rerun it with:
+
+```bash
+docker compose -f compose.yaml -f compose.dev.yml run --rm migrate
+```
+
+Dependency manifests and Dockerfile changes still require rebuilding. When web
+dependencies change, renew the anonymous `node_modules` volume so it is filled
+from the rebuilt development image:
+
+```bash
+docker compose -f compose.yaml -f compose.dev.yml up --build --renew-anon-volumes
+```
+
+When Python requirements change, rebuild the AI service:
+
+```bash
+docker compose -f compose.yaml -f compose.dev.yml up --build ai
+```
+
+Stop the development stack with:
+
+```bash
+docker compose -f compose.yaml -f compose.dev.yml down
+```
+
+The source bind mounts do not replace the web container's dependencies:
+anonymous volumes keep `/app/node_modules` and `/app/.next` inside Docker.
+
+### Production-shaped Compose
 
 Build and run both current services:
 

@@ -73,16 +73,16 @@ Do not spend time on elaborate branding or visual design yet.
 
 ## Phase 3 — Course Management
 
-- [ ] Create/join course
-- [ ] Admin can edit topic structure
-- [ ] Members can view shared structure
-- [ ] Members cannot modify canonical structure
-- [ ] User can create a private independent course
-- [ ] User can change their own target completion date
-- [ ] User schedule changes do not alter other members
-- [ ] Track topic/subtopic completion
-- [ ] Track user confidence/self-assessment
-- [ ] Track study activity
+- [x] Create/join course
+- [x] Admin can edit topic structure
+- [x] Members can view shared structure
+- [x] Members cannot modify canonical structure
+- [x] User can create a private independent course
+- [x] User can change their own target completion date
+- [x] User schedule changes do not alter other members
+- [x] Track topic/subtopic completion
+- [x] Track user confidence/self-assessment
+- [x] Track study activity
 
 ## Phase 4 — FastAPI AI Service
 

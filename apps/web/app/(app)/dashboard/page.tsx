@@ -1,29 +1,18 @@
-"use client";
-
 import Link from "next/link";
 
-import { getCourseProgress } from "@/lib/courses";
+import { listCoursesForUser } from "@/lib/db/course-management";
+import { requireSession } from "@/lib/session";
 
-import { useCourses } from "../course-provider";
-
-export default function DashboardPage() {
-  const { courses, ready } = useCourses();
-
-  if (!ready)
-    return <p className="text-sm text-zinc-600">Loading dashboard…</p>;
-
+export default async function DashboardPage() {
+  const session = await requireSession();
+  const courses = await listCoursesForUser(session.userId);
   const averageProgress = courses.length
     ? Math.round(
-        courses.reduce(
-          (total, course) => total + getCourseProgress(course),
-          0,
-        ) / courses.length,
+        courses.reduce((total, course) => total + course.progress, 0) /
+          courses.length,
       )
     : 0;
-  const nextCourse = courses.find((course) => getCourseProgress(course) < 100);
-  const nextSubtopic = nextCourse?.topics
-    .flatMap((topic) => topic.subtopics)
-    .find((subtopic) => !subtopic.completed);
+  const nextCourse = courses.find((course) => course.progress < 100);
 
   return (
     <div className="space-y-8">
@@ -41,26 +30,26 @@ export default function DashboardPage() {
       </header>
 
       <section
-        className="grid gap-4 sm:grid-cols-3"
+        className="grid gap-4 sm:grid-cols-2"
         aria-label="Learning summary"
       >
         <SummaryCard label="Courses" value={String(courses.length)} />
         <SummaryCard label="Average progress" value={`${averageProgress}%`} />
-        <SummaryCard label="Current streak" value="1 day" />
       </section>
 
       <section className="border border-black p-5">
         <p className="text-sm font-medium text-zinc-600">
           Recommended next action
         </p>
-        {nextCourse && nextSubtopic ? (
+        {nextCourse ? (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-semibold">
-                Review {nextSubtopic.name}
+                Continue {nextCourse.name}
               </h2>
               <p className="mt-1 text-sm text-zinc-600">
-                Continue {nextCourse.name}.
+                {nextCourse.completedTopics} of {nextCourse.topicCount} topics
+                completed.
               </p>
             </div>
             <Link
@@ -72,7 +61,7 @@ export default function DashboardPage() {
           </div>
         ) : (
           <p className="mt-3 text-sm text-zinc-600">
-            Create a course to receive a study recommendation.
+            Create or join a course to receive a study recommendation.
           </p>
         )}
       </section>
@@ -88,35 +77,29 @@ export default function DashboardPage() {
           </Link>
         </div>
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          {courses.slice(0, 4).map((course) => {
-            const progress = getCourseProgress(course);
-            return (
-              <Link
-                className="border border-black p-5 hover:bg-zinc-50"
-                href={`/courses/${course.id}`}
-                key={course.id}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="font-semibold">{course.name}</h3>
-                    <p className="mt-1 text-sm text-zinc-600">
-                      {course.description}
-                    </p>
-                  </div>
-                  <span className="text-sm font-medium">{progress}%</span>
+          {courses.slice(0, 4).map((course) => (
+            <Link
+              className="border border-black p-5 hover:bg-zinc-50"
+              href={`/courses/${course.id}`}
+              key={course.id}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="font-semibold">{course.name}</h3>
+                  <p className="mt-1 text-sm text-zinc-600">
+                    {course.description || "No description yet."}
+                  </p>
                 </div>
+                <span className="text-sm font-medium">{course.progress}%</span>
+              </div>
+              <div className="mt-4 h-2 border border-black" aria-hidden="true">
                 <div
-                  className="mt-4 h-2 border border-black"
-                  aria-hidden="true"
-                >
-                  <div
-                    className="h-full bg-black"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </Link>
-            );
-          })}
+                  className="h-full bg-black"
+                  style={{ width: `${course.progress}%` }}
+                />
+              </div>
+            </Link>
+          ))}
         </div>
       </section>
     </div>

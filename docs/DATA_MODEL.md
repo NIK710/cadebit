@@ -13,6 +13,8 @@ migration history.
 - Better Auth owns users, sessions, accounts, and verification records through
   tables represented in the canonical Drizzle schema.
 - Courses distinguish shared courses from independent courses.
+- Shared courses have a unique six-character join code. Independent courses
+  have no join code and cannot be joined through the application.
 - Every course owner must also receive an admin membership in the same creation
   transaction. An independent course starts with only that membership.
 - Membership roles control changes to shared course structure. Learning state
@@ -53,3 +55,11 @@ changes.
 `user_course_schedules` has one target per user and course. `schedule_items`
 belong to that personalized schedule, so changing one student's target date or
 plan cannot alter another member's schedule.
+
+## Course management authorization
+
+All reads begin with the requesting user's course membership. Course structure
+mutations require an admin membership inside the same database transaction as
+the topic change. Completion, confidence, target dates, and activity writes
+derive the user ID from the authenticated server session and verify membership;
+clients cannot select another user as the target of a learning-state update.

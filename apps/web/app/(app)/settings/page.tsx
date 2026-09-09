@@ -24,9 +24,9 @@ export default async function SettingsPage() {
       <section className="border border-black p-5">
         <h2 className="font-semibold">Course data</h2>
         <p className="mt-2 text-sm leading-6 text-zinc-600">
-          Authentication is stored in PostgreSQL. Course UI changes remain
-          scoped to this account in the browser until Phase 3 connects course
-          management to the database.
+          Courses, memberships, topic structure, schedules, progress,
+          confidence, and study activity are stored in PostgreSQL. Personal
+          learning state remains separate for every course member.
         </p>
       </section>
     </div>

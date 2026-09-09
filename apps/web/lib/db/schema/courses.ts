@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  char,
   check,
   foreignKey,
   index,
@@ -32,6 +33,7 @@ export const courses = pgTable(
     name: text("name").notNull(),
     description: text("description").notNull().default(""),
     type: courseType("type").notNull(),
+    joinCode: char("join_code", { length: 6 }),
     ownerId: text("owner_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -44,7 +46,12 @@ export const courses = pgTable(
   },
   (table) => [
     index("courses_owner_id_idx").on(table.ownerId),
+    uniqueIndex("courses_join_code_idx").on(table.joinCode),
     check("courses_name_not_blank", sql`length(trim(${table.name})) > 0`),
+    check(
+      "courses_join_code_matches_type",
+      sql`(${table.type} = 'shared' and ${table.joinCode} ~ '^[A-HJ-NP-Z2-9]{6}$') or (${table.type} = 'independent' and ${table.joinCode} is null)`,
+    ),
   ],
 );
 
