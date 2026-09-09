@@ -1,6 +1,22 @@
 name: cadebit
 
 services:
+  database:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: cadebit
+      POSTGRES_USER: cadebit
+      POSTGRES_PASSWORD: cadebit
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cadebit -d cadebit"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
   ai:
     build:
       context: services/ai
@@ -8,21 +24,40 @@ services:
       CADEBIT_ENVIRONMENT: production
       AI_SERVICE_HOST: 0.0.0.0
       AI_SERVICE_PORT: 8000
+      DATABASE_URL: postgresql://cadebit:cadebit@database:5432/cadebit
+    depends_on:
+      database:
+        condition: service_healthy
     ports:
       - "8000:8000"
+
+  migrate:
+    build:
+      context: apps/web
+      target: migration
+    environment:
+      DATABASE_URL: postgresql://cadebit:cadebit@database:5432/cadebit
+    depends_on:
+      database:
+        condition: service_healthy
 
   web:
     build:
       context: apps/web
     environment:
       AI_SERVICE_URL: http://ai:8000
-      SESSION_SECRET: compose-development-secret-change-before-production
-      SESSION_COOKIE_SECURE: "false"
-      DEV_AUTH_NAME: CadeBit Student
-      DEV_AUTH_EMAIL: student@cadebit.local
-      DEV_AUTH_PASSWORD: cadebit-local
+      DATABASE_URL: postgresql://cadebit:cadebit@database:5432/cadebit
+      BETTER_AUTH_SECRET: compose-development-secret-change-before-production
+      BETTER_AUTH_URL: http://localhost:3000
     depends_on:
       ai:
         condition: service_healthy
+      database:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     ports:
       - "3000:3000"
+
+volumes:
+  postgres-data:

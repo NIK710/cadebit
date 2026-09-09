@@ -1,16 +1,39 @@
 "use client";
 
-import { useActionState } from "react";
+import Link from "next/link";
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 
-import { loginAction, type LoginState } from "@/app/actions/auth";
-
-const initialState: LoginState = {};
+import { authClient } from "@/lib/auth-client";
 
 export function LoginForm() {
-  const [state, action, pending] = useActionState(loginAction, initialState);
+  const router = useRouter();
+  const [error, setError] = useState<string>();
+  const [pending, setPending] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(undefined);
+    setPending(true);
+
+    const formData = new FormData(event.currentTarget);
+    const result = await authClient.signIn.email({
+      email: String(formData.get("email") ?? "").trim(),
+      password: String(formData.get("password") ?? ""),
+    });
+
+    if (result.error) {
+      setError(result.error.message || "Unable to sign in.");
+      setPending(false);
+      return;
+    }
+
+    router.push("/dashboard");
+    router.refresh();
+  }
 
   return (
-    <form action={action} className="space-y-5">
+    <form className="space-y-5" onSubmit={handleSubmit}>
       <div className="space-y-2">
         <label className="block text-sm font-medium" htmlFor="email">
           Email
@@ -39,12 +62,12 @@ export function LoginForm() {
         />
       </div>
 
-      {state.error ? (
+      {error ? (
         <p
           className="border border-black bg-zinc-100 px-3 py-2 text-sm"
           role="alert"
         >
-          {state.error}
+          {error}
         </p>
       ) : null}
 
@@ -55,6 +78,16 @@ export function LoginForm() {
       >
         {pending ? "Signing in…" : "Sign in"}
       </button>
+
+      <p className="text-center text-sm text-zinc-600">
+        Need an account?{" "}
+        <Link
+          className="font-medium text-black underline underline-offset-4"
+          href="/signup"
+        >
+          Create one
+        </Link>
+      </p>
     </form>
   );
 }

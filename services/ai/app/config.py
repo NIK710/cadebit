@@ -35,6 +35,7 @@ class Settings:
     host: str
     port: int
     log_level: str
+    database_url: str | None
 
 
 @lru_cache
@@ -51,4 +52,5 @@ def get_settings() -> Settings:
         host=os.getenv("AI_SERVICE_HOST", "127.0.0.1").strip(),
         port=_read_port("AI_SERVICE_PORT", 8000),
         log_level=os.getenv("AI_SERVICE_LOG_LEVEL", "info").strip().lower(),
+        database_url=os.getenv("DATABASE_URL"),
     )

@@ -1,8 +1,8 @@
 # CadeBit
 
 CadeBit is a web-first learning platform that turns course material into an
-adaptive study system. The repository currently contains a Next.js web app and
-a focused FastAPI service for future AI and RAG workflows.
+adaptive study system. The repository contains a Next.js web app, PostgreSQL
+with pgvector, and a focused FastAPI service for AI and RAG workflows.
 
 Read [PROJECT.md](PROJECT.md) for the product and architecture direction and
 [TASKS.md](TASKS.md) for the implementation backlog.
@@ -12,6 +12,7 @@ Read [PROJECT.md](PROJECT.md) for the product and architecture direction and
 ```text
 apps/web/       Next.js, React, TypeScript, and Tailwind CSS
 services/ai/    FastAPI AI service
+apps/web/drizzle/ Versioned PostgreSQL migrations
 ```
 
 ## Prerequisites
@@ -47,6 +48,14 @@ services/ai/.venv/bin/python -m pip install --requirement services/ai/requiremen
 
 Do not commit local environment files or put secrets in the example files.
 
+Start PostgreSQL and apply the canonical Drizzle migrations:
+
+```bash
+docker compose up -d database
+cd apps/web
+npm run db:migrate
+```
+
 ## Run locally
 
 Start the AI service in one terminal:
@@ -66,17 +75,9 @@ npm run dev
 The web app runs at <http://localhost:3000>. The AI health endpoint is available
 at <http://localhost:8000/health>.
 
-For the initial local authentication flow, sign in with the development account
-from `apps/web/.env.local`. The example credentials are:
-
-```text
-Email: student@cadebit.local
-Password: cadebit-local
-```
-
-This environment-backed account is only for local Phase 1 development. Durable
-users and account records will move to PostgreSQL in Phase 2; do not reuse the
-example session secret or password in a deployed environment.
+Create an account at <http://localhost:3000/signup>, then use those credentials
+on the login page. Better Auth stores users, password credentials, and sessions
+in PostgreSQL.
 
 ## Quality checks
 
@@ -87,6 +88,16 @@ make lint
 make format-check
 make test
 ```
+
+Check that the migration history matches the canonical Drizzle schema:
+
+```bash
+cd apps/web
+npm run db:check
+```
+
+With the local database running, execute the database-backed authentication
+test with `npm run test:integration` from `apps/web`.
 
 Apply automatic formatting and safe lint fixes with:
 
@@ -114,6 +125,10 @@ Stop them with:
 ```bash
 docker compose down
 ```
+
+Compose starts PostgreSQL with pgvector, applies Drizzle migrations once, and
+then starts the web and AI services. Drizzle is the only migration owner; the
+FastAPI service may consume the database but does not maintain migrations.
 
 The Compose setup is intended as a production-shaped local smoke test. Normal
 feature development is faster with the service-specific development commands

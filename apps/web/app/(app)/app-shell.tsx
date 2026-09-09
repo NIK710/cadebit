@@ -1,8 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { logoutAction } from "@/app/actions/auth";
 import type { SessionUser } from "@/lib/session";
+
+import { LogoutButton } from "./logout-button";
 
 const navigation = [
   { href: "/dashboard", label: "Dashboard" },
@@ -26,14 +27,7 @@ export function AppShell({
           </Link>
           <div className="flex items-center gap-4 text-sm">
             <span className="hidden text-zinc-600 sm:inline">{user.name}</span>
-            <form action={logoutAction}>
-              <button
-                className="border border-black px-3 py-1.5 hover:bg-zinc-100"
-                type="submit"
-              >
-                Sign out
-              </button>
-            </form>
+            <LogoutButton />
           </div>
         </div>
       </header>

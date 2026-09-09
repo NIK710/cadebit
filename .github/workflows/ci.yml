@@ -15,6 +15,24 @@ jobs:
   web:
     name: Web
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://cadebit:cadebit@127.0.0.1:5432/cadebit_test
+      BETTER_AUTH_SECRET: ci-only-auth-secret-with-at-least-32-characters
+      BETTER_AUTH_URL: http://localhost:3000
+    services:
+      database:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_DB: cadebit_test
+          POSTGRES_USER: cadebit
+          POSTGRES_PASSWORD: cadebit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cadebit -d cadebit_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     defaults:
       run:
         working-directory: apps/web
@@ -39,8 +57,17 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
-      - name: Test
+      - name: Check database migrations
+        run: npm run db:check
+
+      - name: Apply database migrations
+        run: npm run db:migrate
+
+      - name: Unit test
         run: npm test
+
+      - name: Integration test
+        run: npm run test:integration
 
       - name: Type-check
         run: npm exec -- tsc --noEmit

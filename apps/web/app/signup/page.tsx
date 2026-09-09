@@ -2,9 +2,9 @@ import { redirect } from "next/navigation";
 
 import { getSession } from "@/lib/session";
 
-import { LoginForm } from "./login-form";
+import { SignupForm } from "./signup-form";
 
-export default async function LoginPage() {
+export default async function SignupPage() {
   if (await getSession()) redirect("/dashboard");
 
   return (
@@ -13,12 +13,12 @@ export default async function LoginPage() {
         <p className="mb-2 text-sm font-semibold uppercase tracking-widest">
           CadeBit
         </p>
-        <h1 className="text-3xl font-semibold">Sign in to study</h1>
+        <h1 className="text-3xl font-semibold">Create your account</h1>
         <p className="mt-3 text-sm leading-6 text-zinc-600">
-          Continue with your CadeBit account and saved learning state.
+          Your courses and learning state will be scoped to this account.
         </p>
         <div className="mt-8">
-          <LoginForm />
+          <SignupForm />
         </div>
       </section>
     </main>

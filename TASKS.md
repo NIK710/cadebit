@@ -51,25 +51,25 @@ Do not spend time on elaborate branding or visual design yet.
 
 ## Phase 2 — Database / Domain Model
 
-- [ ] Set up PostgreSQL
-- [ ] Define users
-- [ ] Define courses
-- [ ] Define course memberships
-- [ ] Define admin/member roles
-- [ ] Define topics
-- [ ] Define subtopic hierarchy
-- [ ] Define materials
-- [ ] Define course-material associations
-- [ ] Define per-user topic progress
-- [ ] Define AI assessment evidence
-- [ ] Define user self-assessment
-- [ ] Define study sessions
-- [ ] Define activity/time-spent tracking
-- [ ] Define streak derivation strategy
-- [ ] Define user-specific schedules / target dates
-- [ ] Define independent/private course behavior
-- [ ] Add migrations
-- [ ] Add authorization tests
+- [x] Set up PostgreSQL
+- [x] Define users
+- [x] Define courses
+- [x] Define course memberships
+- [x] Define admin/member roles
+- [x] Define topics
+- [x] Define subtopic hierarchy
+- [x] Define materials
+- [x] Define course-material associations
+- [x] Define per-user topic progress
+- [x] Define AI assessment evidence
+- [x] Define user self-assessment
+- [x] Define study sessions
+- [x] Define activity/time-spent tracking
+- [x] Define streak derivation strategy
+- [x] Define user-specific schedules / target dates
+- [x] Define independent/private course behavior
+- [x] Add migrations
+- [x] Add authorization tests
 
 ## Phase 3 — Course Management
 

@@ -77,8 +77,8 @@ export default function CoursesPage() {
       </div>
 
       <p className="border border-dashed border-zinc-500 p-3 text-xs text-zinc-600">
-        Course changes are stored in this browser during Phase 1. PostgreSQL
-        persistence is introduced in Phase 2.
+        Course changes remain in this browser until Phase 3 connects these
+        screens to the Phase 2 PostgreSQL model.
       </p>
     </div>
   );

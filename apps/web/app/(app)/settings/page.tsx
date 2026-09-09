@@ -17,16 +17,16 @@ export default async function SettingsPage() {
         <dl className="divide-y divide-zinc-300">
           <SettingRow label="Name" value={session.name} />
           <SettingRow label="Email" value={session.email} />
-          <SettingRow label="Account type" value="Local development account" />
+          <SettingRow label="Account type" value="Database-backed account" />
         </dl>
       </section>
 
       <section className="border border-black p-5">
-        <h2 className="font-semibold">Data during Phase 1</h2>
+        <h2 className="font-semibold">Course data</h2>
         <p className="mt-2 text-sm leading-6 text-zinc-600">
-          Course changes are scoped to this account and stored in this browser.
-          The PostgreSQL model in Phase 2 will provide durable,
-          server-authorized storage.
+          Authentication is stored in PostgreSQL. Course UI changes remain
+          scoped to this account in the browser until Phase 3 connects course
+          management to the database.
         </p>
       </section>
     </div>
