@@ -1,3 +1,5 @@
+import asyncio
+
 from app.main import app
 from fastapi.routing import APIRoute
 
@@ -10,4 +12,4 @@ def test_health():
     )
 
     assert route.methods == {"GET"}
-    assert route.endpoint() == {"status": "ok"}
+    assert asyncio.run(route.endpoint()).model_dump() == {"status": "ok"}

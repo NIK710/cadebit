@@ -86,13 +86,13 @@ Do not spend time on elaborate branding or visual design yet.
 
 ## Phase 4 — FastAPI AI Service
 
-- [ ] Add health endpoint
-- [ ] Define service configuration
-- [ ] Add OpenAI client abstraction
-- [ ] Define web-app-to-AI-service API contract
-- [ ] Add structured logging
-- [ ] Add service tests
-- [ ] Add failure/timeout handling
+- [x] Add health endpoint
+- [x] Define service configuration
+- [x] Add OpenAI client abstraction
+- [x] Define web-app-to-AI-service API contract
+- [x] Add structured logging
+- [x] Add service tests
+- [x] Add failure/timeout handling
 
 ## Phase 5 — Course Material Ingestion
 

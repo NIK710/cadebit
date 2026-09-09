@@ -25,6 +25,12 @@ services:
       AI_SERVICE_HOST: 0.0.0.0
       AI_SERVICE_PORT: 8000
       DATABASE_URL: postgresql://cadebit:cadebit@database:5432/cadebit
+      AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-compose-development-ai-service-token}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-6-astra}
+      OPENAI_TIMEOUT_SECONDS: ${OPENAI_TIMEOUT_SECONDS:-30}
+      OPENAI_MAX_RETRIES: ${OPENAI_MAX_RETRIES:-2}
+      OPENAI_MAX_OUTPUT_TOKENS: ${OPENAI_MAX_OUTPUT_TOKENS:-1200}
     depends_on:
       database:
         condition: service_healthy
@@ -46,6 +52,8 @@ services:
       context: apps/web
     environment:
       AI_SERVICE_URL: http://ai:8000
+      AI_SERVICE_TOKEN: ${AI_SERVICE_TOKEN:-compose-development-ai-service-token}
+      AI_SERVICE_TIMEOUT_MS: ${AI_SERVICE_TIMEOUT_MS:-35000}
       DATABASE_URL: postgresql://cadebit:cadebit@database:5432/cadebit
       BETTER_AUTH_SECRET: compose-development-secret-change-before-production
       BETTER_AUTH_URL: http://localhost:3000

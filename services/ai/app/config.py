@@ -29,6 +29,33 @@ def _read_port(name: str, default: int) -> int:
     return value
 
 
+def _read_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    raw_value = os.getenv(name, str(default))
+    try:
+        value = int(raw_value)
+    except ValueError as error:
+        raise ValueError(f"{name} must be an integer.") from error
+    if not minimum <= value <= maximum:
+        raise ValueError(f"{name} must be between {minimum} and {maximum}.")
+    return value
+
+
+def _read_float(name: str, default: float, minimum: float, maximum: float) -> float:
+    raw_value = os.getenv(name, str(default))
+    try:
+        value = float(raw_value)
+    except ValueError as error:
+        raise ValueError(f"{name} must be a number.") from error
+    if not minimum <= value <= maximum:
+        raise ValueError(f"{name} must be between {minimum} and {maximum}.")
+    return value
+
+
+def _optional_secret(name: str) -> str | None:
+    value = os.getenv(name, "").strip()
+    return value or None
+
+
 @dataclass(frozen=True)
 class Settings:
     environment: str
@@ -36,6 +63,12 @@ class Settings:
     port: int
     log_level: str
     database_url: str | None
+    service_token: str | None
+    openai_api_key: str | None
+    openai_model: str
+    openai_timeout_seconds: float
+    openai_max_retries: int
+    openai_max_output_tokens: int
 
 
 @lru_cache
@@ -53,4 +86,12 @@ def get_settings() -> Settings:
         port=_read_port("AI_SERVICE_PORT", 8000),
         log_level=os.getenv("AI_SERVICE_LOG_LEVEL", "info").strip().lower(),
         database_url=os.getenv("DATABASE_URL"),
+        service_token=_optional_secret("AI_SERVICE_TOKEN"),
+        openai_api_key=_optional_secret("OPENAI_API_KEY"),
+        openai_model=os.getenv("OPENAI_MODEL", "gpt-6-astra").strip() or "gpt-6-astra",
+        openai_timeout_seconds=_read_float("OPENAI_TIMEOUT_SECONDS", 30.0, 1.0, 300.0),
+        openai_max_retries=_read_int("OPENAI_MAX_RETRIES", 2, 0, 5),
+        openai_max_output_tokens=_read_int(
+            "OPENAI_MAX_OUTPUT_TOKENS", 1_200, 64, 10_000
+        ),
     )

@@ -75,6 +75,11 @@ npm run dev
 The web app runs at <http://localhost:3000>. The AI health endpoint is available
 at <http://localhost:8000/health>.
 
+The internal AI generation contract and its required environment variables are
+documented in [docs/AI_SERVICE.md](docs/AI_SERVICE.md). Use the same
+`AI_SERVICE_TOKEN` in both services; `OPENAI_API_KEY` belongs only in the AI
+service environment.
+
 Create an account at <http://localhost:3000/signup>, then use those credentials
 on the login page. Better Auth stores users, password credentials, and sessions
 in PostgreSQL.
