@@ -28,7 +28,7 @@ describe("generateCourseContent", () => {
               excerpt: "A closure retains its lexical environment.",
             },
           ],
-          model: "gpt-6-astra",
+          model: "gpt-5.6-luna",
           usage: { input_tokens: 10, output_tokens: 8, total_tokens: 18 },
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },

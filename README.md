@@ -76,7 +76,9 @@ The web app runs at <http://localhost:3000>. The AI health endpoint is available
 at <http://localhost:8000/health>.
 
 The internal AI generation contract and its required environment variables are
-documented in [docs/AI_SERVICE.md](docs/AI_SERVICE.md). Use the same
+documented in [docs/AI_SERVICE.md](docs/AI_SERVICE.md). Course uploads and the
+durable ingestion worker are documented in [docs/INGESTION.md](docs/INGESTION.md).
+Use the same
 `AI_SERVICE_TOKEN` in both services; `OPENAI_API_KEY` belongs only in the AI
 service environment.
 
@@ -133,10 +135,16 @@ docker compose -f compose.yaml -f compose.dev.yml up --build
 ```
 
 Changes under `apps/web/app`, `apps/web/lib`, and other mounted web source paths
-reload through the Next.js development server. Python changes under
-`services/ai/app` restart Uvicorn automatically. Drizzle migration files are
-also mounted into the one-shot migration service; after adding a migration,
-rerun it with:
+reload through the Next.js development server. Python API changes under
+`services/ai/app` restart Uvicorn automatically. The ingestion worker shares
+the source bind mount but must be restarted after its source changes:
+
+```bash
+docker compose -f compose.yaml -f compose.dev.yml restart ai-worker
+```
+
+Drizzle migration files are also mounted into the one-shot migration service;
+after adding a migration, rerun it with:
 
 ```bash
 docker compose -f compose.yaml -f compose.dev.yml run --rm migrate
@@ -150,10 +158,10 @@ from the rebuilt development image:
 docker compose -f compose.yaml -f compose.dev.yml up --build --renew-anon-volumes
 ```
 
-When Python requirements change, rebuild the AI service:
+When Python requirements change, rebuild both Python processes:
 
 ```bash
-docker compose -f compose.yaml -f compose.dev.yml up --build ai
+docker compose -f compose.yaml -f compose.dev.yml up --build ai ai-worker
 ```
 
 Stop the development stack with:
@@ -179,9 +187,10 @@ Stop them with:
 docker compose down
 ```
 
-Compose starts PostgreSQL with pgvector, applies Drizzle migrations once, and
-then starts the web and AI services. Drizzle is the only migration owner; the
-FastAPI service may consume the database but does not maintain migrations.
+Compose starts PostgreSQL with pgvector, creates the private MinIO bucket,
+applies Drizzle migrations once, and then starts the web, AI, and separate
+ingestion-worker services. Drizzle is the only migration owner; the FastAPI
+service and worker may consume the database but do not maintain migrations.
 
 The Compose setup is intended as a production-shaped local smoke test. Normal
 feature development is faster with the service-specific development commands

@@ -11,6 +11,8 @@ import {
   courseMemberships,
   courses,
   materials,
+  materialChunks,
+  materialIngestionJobs,
   scheduleItems,
   sessions,
   studySessions,
@@ -32,6 +34,8 @@ describe("canonical database schema", () => {
       courseMemberships,
       courses,
       materials,
+      materialChunks,
+      materialIngestionJobs,
       scheduleItems,
       sessions,
       studySessions,
@@ -43,11 +47,13 @@ describe("canonical database schema", () => {
       verifications,
     ].map(getTableName);
 
-    expect(new Set(tableNames).size).toBe(16);
+    expect(new Set(tableNames).size).toBe(18);
     expect(tableNames).toContain("users");
     expect(tableNames).toContain("course_memberships");
     expect(tableNames).toContain("assessment_evidence");
     expect(tableNames).toContain("activity_events");
+    expect(tableNames).toContain("material_chunks");
+    expect(tableNames).toContain("material_ingestion_jobs");
   });
 
   it("creates the topics composite unique index before its self-reference", () => {
@@ -64,5 +70,22 @@ describe("canonical database schema", () => {
 
     expect(uniqueIndexPosition).toBeGreaterThan(-1);
     expect(foreignKeyPosition).toBeGreaterThan(uniqueIndexPosition);
+  });
+
+  it("enables pgvector before creating vector columns", () => {
+    const migration = readFileSync(
+      new URL(
+        "../../../drizzle/0002_sour_captain_britain.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const extensionPosition = migration.indexOf(
+      "CREATE EXTENSION IF NOT EXISTS vector",
+    );
+    const vectorColumnPosition = migration.indexOf('"embedding" vector(1536)');
+
+    expect(extensionPosition).toBeGreaterThan(-1);
+    expect(vectorColumnPosition).toBeGreaterThan(extensionPosition);
   });
 });

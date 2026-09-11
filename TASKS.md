@@ -96,18 +96,18 @@ Do not spend time on elaborate branding or visual design yet.
 
 ## Phase 5 — Course Material Ingestion
 
-- [ ] Add course material upload flow
-- [ ] Add object storage
-- [ ] Store material metadata in PostgreSQL
-- [ ] Parse supported documents
-- [ ] Normalize extracted text
-- [ ] Chunk material
-- [ ] Preserve source/page/section metadata
-- [ ] Generate embeddings
-- [ ] Add pgvector
-- [ ] Store embeddings
-- [ ] Make ingestion idempotent
-- [ ] Handle failed ingestion
+- [x] Add course material upload flow
+- [x] Add object storage
+- [x] Store material metadata in PostgreSQL
+- [x] Parse supported documents
+- [x] Normalize extracted text
+- [x] Chunk material
+- [x] Preserve source/page/section metadata
+- [x] Generate embeddings
+- [x] Add pgvector
+- [x] Store embeddings
+- [x] Make ingestion idempotent
+- [x] Handle failed ingestion
 
 ## Phase 6 — RAG
 

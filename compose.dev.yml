@@ -19,6 +19,17 @@ services:
         source: ./services/ai
         target: /app
 
+  ai-worker:
+    image: cadebit-ai-dev
+    build:
+      context: services/ai
+    environment:
+      CADEBIT_ENVIRONMENT: development
+    volumes:
+      - type: bind
+        source: ./services/ai
+        target: /app
+
   migrate:
     volumes:
       - type: bind

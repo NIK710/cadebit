@@ -13,6 +13,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  vector,
 } from "drizzle-orm/pg-core";
 
 import { users } from "./auth";
@@ -23,6 +24,13 @@ export const materialStatus = pgEnum("material_status", [
   "uploaded",
   "processing",
   "ready",
+  "failed",
+]);
+export const materialIngestionStatus = pgEnum("material_ingestion_status", [
+  "pending",
+  "processing",
+  "retry",
+  "complete",
   "failed",
 ]);
 
@@ -126,9 +134,12 @@ export const materials = pgTable(
     originalFilename: text("original_filename").notNull(),
     mediaType: text("media_type").notNull(),
     byteSize: integer("byte_size").notNull(),
+    contentHash: char("content_hash", { length: 64 }),
     storageKey: text("storage_key").notNull().unique(),
     status: materialStatus("status").notNull().default("uploaded"),
     failureReason: text("failure_reason"),
+    pipelineVersion: text("pipeline_version"),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
     sourceMetadata: jsonb("source_metadata").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -140,6 +151,101 @@ export const materials = pgTable(
   (table) => [
     index("materials_owner_id_idx").on(table.ownerId),
     check("materials_byte_size_nonnegative", sql`${table.byteSize} >= 0`),
+  ],
+);
+
+export const materialChunks = pgTable(
+  "material_chunks",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    materialId: uuid("material_id")
+      .notNull()
+      .references(() => materials.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    content: text("content").notNull(),
+    contentHash: char("content_hash", { length: 64 }).notNull(),
+    pageNumber: integer("page_number"),
+    section: text("section"),
+    sourceMetadata: jsonb("source_metadata")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    pipelineVersion: text("pipeline_version").notNull(),
+    embeddingModel: text("embedding_model").notNull(),
+    embedding: vector("embedding", { dimensions: 1536 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("material_chunks_material_pipeline_position_idx").on(
+      table.materialId,
+      table.pipelineVersion,
+      table.position,
+    ),
+    index("material_chunks_material_id_idx").on(table.materialId),
+    index("material_chunks_embedding_hnsw_idx").using(
+      "hnsw",
+      table.embedding.op("vector_cosine_ops"),
+    ),
+    check("material_chunks_position_nonnegative", sql`${table.position} >= 0`),
+    check(
+      "material_chunks_page_number_positive",
+      sql`${table.pageNumber} is null or ${table.pageNumber} > 0`,
+    ),
+    check(
+      "material_chunks_content_not_blank",
+      sql`length(trim(${table.content})) > 0`,
+    ),
+  ],
+);
+
+export const materialIngestionJobs = pgTable(
+  "material_ingestion_jobs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    materialId: uuid("material_id")
+      .notNull()
+      .references(() => materials.id, { onDelete: "cascade" }),
+    pipelineVersion: text("pipeline_version").notNull(),
+    status: materialIngestionStatus("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(3),
+    availableAt: timestamp("available_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lockedAt: timestamp("locked_at", { withTimezone: true }),
+    lockedBy: text("locked_by"),
+    lastError: text("last_error"),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("material_ingestion_jobs_material_pipeline_idx").on(
+      table.materialId,
+      table.pipelineVersion,
+    ),
+    index("material_ingestion_jobs_claim_idx").on(
+      table.status,
+      table.availableAt,
+    ),
+    check(
+      "material_ingestion_jobs_attempts_nonnegative",
+      sql`${table.attempts} >= 0`,
+    ),
+    check(
+      "material_ingestion_jobs_max_attempts_positive",
+      sql`${table.maxAttempts} > 0`,
+    ),
+    check(
+      "material_ingestion_jobs_attempts_bounded",
+      sql`${table.attempts} <= ${table.maxAttempts}`,
+    ),
   ],
 );
 

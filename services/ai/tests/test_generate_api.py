@@ -40,7 +40,7 @@ class StubOrchestrator:
             task=request.task,
             content="Course material is unavailable.",
             sources=[],
-            model="gpt-6-astra",
+            model="gpt-5.6-luna",
             usage=None,
         )
 
@@ -97,7 +97,7 @@ def test_generate_returns_contract_and_request_id():
         "task": "answer",
         "content": "Course material is unavailable.",
         "sources": [],
-        "model": "gpt-6-astra",
+        "model": "gpt-5.6-luna",
         "usage": None,
     }
 

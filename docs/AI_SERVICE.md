@@ -48,7 +48,7 @@ generation code.
       "excerpt": "A closure retains its lexical environment."
     }
   ],
-  "model": "gpt-6-astra",
+  "model": "gpt-5.6-luna",
   "usage": {
     "input_tokens": 120,
     "output_tokens": 48,
@@ -58,10 +58,11 @@ generation code.
 ```
 
 Source references are structured data so the web app can render citations
-without parsing model-written text. Phase 4 intentionally installs an empty
-grounding provider. Until ingestion and retrieval arrive in Phases 5 and 6,
-responses contain `"sources": []` and the model is instructed not to claim
-course grounding or substitute general knowledge.
+without parsing model-written text. Material ingestion is implemented by the
+separate worker documented in [INGESTION.md](INGESTION.md). Retrieval remains a
+Phase 6 concern, so the current generation path still returns `"sources": []`
+and the model is instructed not to claim course grounding or substitute general
+knowledge.
 
 ## Failures
 
@@ -103,10 +104,12 @@ contents, credentials, or generated content.
 
 Drizzle remains the sole schema and migration owner. The AI service reads
 PostgreSQL for authorization but does not maintain a migration system.
+Document parsing and embedding run in the separate durable ingestion worker,
+not in a FastAPI in-process background task.
 
 ## Configuration
 
 Set the same strong random `AI_SERVICE_TOKEN` for the web and AI services. The
 AI service also requires `OPENAI_API_KEY` to generate. `OPENAI_MODEL` is
-configurable and defaults to `gpt-6-astra`; timeouts, retries, and output limits
+configurable and defaults to `gpt-5.6-luna`; timeouts, retries, and output limits
 are configurable through the variables documented in the service `.env.example`.

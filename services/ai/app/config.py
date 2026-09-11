@@ -69,6 +69,26 @@ class Settings:
     openai_timeout_seconds: float
     openai_max_retries: int
     openai_max_output_tokens: int
+    embedding_model: str
+    material_pipeline_version: str
+    worker_poll_seconds: float
+    worker_lease_seconds: int
+    worker_retry_base_seconds: int
+    s3_endpoint: str
+    s3_region: str
+    s3_bucket: str
+    s3_access_key: str
+    s3_secret_key: str
+    s3_force_path_style: bool
+
+
+def _read_bool(name: str, default: bool) -> bool:
+    raw_value = os.getenv(name, str(default)).strip().lower()
+    if raw_value == "true":
+        return True
+    if raw_value == "false":
+        return False
+    raise ValueError(f"{name} must be true or false.")
 
 
 @lru_cache
@@ -88,10 +108,34 @@ def get_settings() -> Settings:
         database_url=os.getenv("DATABASE_URL"),
         service_token=_optional_secret("AI_SERVICE_TOKEN"),
         openai_api_key=_optional_secret("OPENAI_API_KEY"),
-        openai_model=os.getenv("OPENAI_MODEL", "gpt-6-astra").strip() or "gpt-6-astra",
+        openai_model=os.getenv("OPENAI_MODEL", "gpt-5.6-luna").strip()
+        or "gpt-5.6-luna",
         openai_timeout_seconds=_read_float("OPENAI_TIMEOUT_SECONDS", 30.0, 1.0, 300.0),
         openai_max_retries=_read_int("OPENAI_MAX_RETRIES", 2, 0, 5),
         openai_max_output_tokens=_read_int(
             "OPENAI_MAX_OUTPUT_TOKENS", 1_200, 64, 10_000
         ),
+        embedding_model=os.getenv(
+            "OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"
+        ).strip()
+        or "text-embedding-3-small",
+        material_pipeline_version=os.getenv("MATERIAL_PIPELINE_VERSION", "v1").strip()
+        or "v1",
+        worker_poll_seconds=_read_float(
+            "INGESTION_WORKER_POLL_SECONDS", 2.0, 0.1, 60.0
+        ),
+        worker_lease_seconds=_read_int(
+            "INGESTION_WORKER_LEASE_SECONDS", 600, 30, 3_600
+        ),
+        worker_retry_base_seconds=_read_int(
+            "INGESTION_RETRY_BASE_SECONDS", 5, 1, 3_600
+        ),
+        s3_endpoint=os.getenv("S3_ENDPOINT", "http://127.0.0.1:9000").strip(),
+        s3_region=os.getenv("S3_REGION", "us-east-1").strip(),
+        s3_bucket=os.getenv("S3_BUCKET", "cadebit-materials").strip(),
+        s3_access_key=os.getenv("S3_ACCESS_KEY", "cadebit").strip(),
+        s3_secret_key=os.getenv(
+            "S3_SECRET_KEY", "cadebit-local-storage-secret"
+        ).strip(),
+        s3_force_path_style=_read_bool("S3_FORCE_PATH_STYLE", True),
     )

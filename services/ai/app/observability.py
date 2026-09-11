@@ -22,7 +22,19 @@ class JsonFormatter(logging.Formatter):
             "message": record.getMessage(),
             "request_id": getattr(record, "request_id", get_request_id()),
         }
-        for field in ("event", "method", "path", "status_code", "duration_ms"):
+        for field in (
+            "event",
+            "method",
+            "path",
+            "status_code",
+            "duration_ms",
+            "worker_id",
+            "pipeline_version",
+            "material_id",
+            "job_id",
+            "attempt",
+            "chunk_count",
+        ):
             value = getattr(record, field, None)
             if value is not None:
                 payload[field] = value

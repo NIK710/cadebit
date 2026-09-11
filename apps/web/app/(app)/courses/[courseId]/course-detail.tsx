@@ -9,6 +9,7 @@ import {
   type CourseDetail as CourseDetailData,
   type CourseTopic,
 } from "@/lib/courses";
+import type { CourseMaterialSummary } from "@/lib/db/material-management";
 
 import {
   addTopicAction,
@@ -17,10 +18,17 @@ import {
   updateCompletionAction,
   updateConfidenceAction,
   updateTargetDateAction,
+  uploadCourseMaterialAction,
   type CourseActionState,
 } from "../actions";
 
-export function CourseDetail({ course }: { course: CourseDetailData }) {
+export function CourseDetail({
+  course,
+  materials,
+}: {
+  course: CourseDetailData;
+  materials: CourseMaterialSummary[];
+}) {
   const isAdmin = course.role === "admin";
 
   return (
@@ -79,6 +87,44 @@ export function CourseDetail({ course }: { course: CourseDetailData }) {
       </section>
 
       <section>
+        <div>
+          <p className="text-sm text-zinc-600">Course knowledge</p>
+          <h2 className="mt-1 text-2xl font-semibold">Materials</h2>
+        </div>
+        {isAdmin ? <MaterialUploadForm courseId={course.id} /> : null}
+        {materials.length === 0 ? (
+          <p className="mt-4 border border-black p-5 text-sm text-zinc-600">
+            No course materials have been uploaded.
+          </p>
+        ) : (
+          <div className="mt-4 divide-y divide-zinc-300 border border-black">
+            {materials.map((material) => (
+              <article
+                className="flex flex-wrap items-center justify-between gap-3 p-4"
+                key={material.id}
+              >
+                <div>
+                  <h3 className="font-semibold">{material.title}</h3>
+                  <p className="text-xs text-zinc-600">
+                    {material.originalFilename} ·{" "}
+                    {formatFileSize(material.byteSize)}
+                  </p>
+                  {material.failureReason ? (
+                    <p className="mt-1 text-xs" role="alert">
+                      {material.failureReason}
+                    </p>
+                  ) : null}
+                </div>
+                <span className="border border-black px-2 py-1 text-xs uppercase">
+                  {material.status}
+                </span>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm text-zinc-600">Course structure</p>
@@ -114,6 +160,46 @@ export function CourseDetail({ course }: { course: CourseDetailData }) {
       </section>
     </div>
   );
+}
+
+function MaterialUploadForm({ courseId }: { courseId: string }) {
+  const [state, action] = useActionState(
+    uploadCourseMaterialAction.bind(null, courseId),
+    {},
+  );
+  return (
+    <form action={action} className="mt-4 border border-black p-4">
+      <p className="text-sm font-medium">Upload course material</p>
+      <p className="mt-1 text-xs text-zinc-600">
+        PDF, text, or Markdown up to 20 MB. Processing runs in the background.
+      </p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+        <input
+          className="border border-black px-3 py-2"
+          maxLength={200}
+          minLength={2}
+          name="title"
+          placeholder="Material title"
+          required
+        />
+        <input
+          accept="application/pdf,text/plain,text/markdown,.md,.markdown"
+          className="border border-black px-3 py-2 text-sm"
+          name="material"
+          required
+          type="file"
+        />
+        <SubmitButton>Upload</SubmitButton>
+      </div>
+      <ActionMessage state={state} />
+    </form>
+  );
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function TargetDateForm({

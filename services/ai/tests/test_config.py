@@ -14,6 +14,9 @@ def test_settings_read_environment(monkeypatch):
     monkeypatch.setenv("OPENAI_TIMEOUT_SECONDS", "12.5")
     monkeypatch.setenv("OPENAI_MAX_RETRIES", "1")
     monkeypatch.setenv("OPENAI_MAX_OUTPUT_TOKENS", "900")
+    monkeypatch.setenv("OPENAI_EMBEDDING_MODEL", "embedding-test-model")
+    monkeypatch.setenv("MATERIAL_PIPELINE_VERSION", "test-v2")
+    monkeypatch.setenv("S3_BUCKET", "test-materials")
     config.get_settings.cache_clear()
 
     settings = config.get_settings()
@@ -29,6 +32,9 @@ def test_settings_read_environment(monkeypatch):
     assert settings.openai_timeout_seconds == 12.5
     assert settings.openai_max_retries == 1
     assert settings.openai_max_output_tokens == 900
+    assert settings.embedding_model == "embedding-test-model"
+    assert settings.material_pipeline_version == "test-v2"
+    assert settings.s3_bucket == "test-materials"
 
     config.get_settings.cache_clear()
 
@@ -38,7 +44,7 @@ def test_settings_use_current_default_model(monkeypatch):
     monkeypatch.delenv("OPENAI_MODEL", raising=False)
     config.get_settings.cache_clear()
 
-    assert config.get_settings().openai_model == "gpt-6-astra"
+    assert config.get_settings().openai_model == "gpt-5.6-luna"
 
     config.get_settings.cache_clear()
 

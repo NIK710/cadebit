@@ -15,6 +15,12 @@ import {
   setTopicConfidence,
   updateTargetDate,
 } from "@/lib/db/course-management";
+import {
+  MaterialManagementError,
+  MAX_MATERIAL_BYTES,
+  SUPPORTED_MATERIAL_TYPES,
+  uploadMaterialForCourse,
+} from "@/lib/db/material-management";
 import { requireSession } from "@/lib/session";
 
 export type CourseActionState = {
@@ -219,6 +225,47 @@ export async function updateConfidenceAction(
     revalidateCourse(courseId);
     return { success: "Confidence updated." };
   } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function uploadCourseMaterialAction(
+  courseId: string,
+  _state: CourseActionState,
+  formData: FormData,
+): Promise<CourseActionState> {
+  const session = await requireSession();
+  const title = textValue(formData, "title");
+  const value = formData.get("material");
+  if (!isUuid(courseId)) return { error: "Invalid course." };
+  if (title.length < 2 || title.length > 200) {
+    return { error: "Material title must contain 2 to 200 characters." };
+  }
+  if (!(value instanceof File) || value.size === 0) {
+    return { error: "Choose a non-empty PDF, text, or Markdown file." };
+  }
+  if (value.size > MAX_MATERIAL_BYTES) {
+    return { error: "Course materials must be 20 MB or smaller." };
+  }
+  if (!SUPPORTED_MATERIAL_TYPES.has(value.type)) {
+    return { error: "Only PDF, plain text, and Markdown files are supported." };
+  }
+
+  try {
+    await uploadMaterialForCourse({
+      bytes: new Uint8Array(await value.arrayBuffer()),
+      courseId,
+      filename: value.name,
+      mediaType: value.type,
+      title,
+      userId: session.userId,
+    });
+    revalidateCourse(courseId);
+    return { success: "Material uploaded and queued for processing." };
+  } catch (error) {
+    if (error instanceof MaterialManagementError) {
+      return { error: error.message };
+    }
     return actionError(error);
   }
 }
