@@ -70,6 +70,9 @@ class Settings:
     openai_max_retries: int
     openai_max_output_tokens: int
     embedding_model: str
+    rag_top_k: int
+    rag_min_similarity: float
+    rag_max_context_characters: int
     material_pipeline_version: str
     worker_poll_seconds: float
     worker_lease_seconds: int
@@ -119,6 +122,11 @@ def get_settings() -> Settings:
             "OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"
         ).strip()
         or "text-embedding-3-small",
+        rag_top_k=_read_int("RAG_TOP_K", 6, 1, 20),
+        rag_min_similarity=_read_float("RAG_MIN_SIMILARITY", 0.15, -1.0, 1.0),
+        rag_max_context_characters=_read_int(
+            "RAG_MAX_CONTEXT_CHARACTERS", 16_000, 1_000, 50_000
+        ),
         material_pipeline_version=os.getenv("MATERIAL_PIPELINE_VERSION", "v1").strip()
         or "v1",
         worker_poll_seconds=_read_float(

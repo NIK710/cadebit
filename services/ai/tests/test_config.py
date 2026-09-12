@@ -15,6 +15,9 @@ def test_settings_read_environment(monkeypatch):
     monkeypatch.setenv("OPENAI_MAX_RETRIES", "1")
     monkeypatch.setenv("OPENAI_MAX_OUTPUT_TOKENS", "900")
     monkeypatch.setenv("OPENAI_EMBEDDING_MODEL", "embedding-test-model")
+    monkeypatch.setenv("RAG_TOP_K", "8")
+    monkeypatch.setenv("RAG_MIN_SIMILARITY", "0.25")
+    monkeypatch.setenv("RAG_MAX_CONTEXT_CHARACTERS", "12000")
     monkeypatch.setenv("MATERIAL_PIPELINE_VERSION", "test-v2")
     monkeypatch.setenv("S3_BUCKET", "test-materials")
     config.get_settings.cache_clear()
@@ -33,6 +36,9 @@ def test_settings_read_environment(monkeypatch):
     assert settings.openai_max_retries == 1
     assert settings.openai_max_output_tokens == 900
     assert settings.embedding_model == "embedding-test-model"
+    assert settings.rag_top_k == 8
+    assert settings.rag_min_similarity == 0.25
+    assert settings.rag_max_context_characters == 12000
     assert settings.material_pipeline_version == "test-v2"
     assert settings.s3_bucket == "test-materials"
 

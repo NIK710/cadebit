@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { isValidJoinCode } from "@/lib/courses";
+import { isValidJoinCode, type CourseTopic } from "@/lib/courses";
+import {
+  AiServiceError,
+  generateCourseContent,
+  type GenerateCourseContentResponse,
+  type GenerationTask,
+} from "@/lib/ai-service";
 import {
   addCourseTopic,
   CourseManagementError,
@@ -14,6 +20,7 @@ import {
   setTopicCompletion,
   setTopicConfidence,
   updateTargetDate,
+  getCourseForUser,
 } from "@/lib/db/course-management";
 import {
   MaterialManagementError,
@@ -26,6 +33,11 @@ import { requireSession } from "@/lib/session";
 export type CourseActionState = {
   error?: string;
   success?: string;
+};
+
+export type CourseAiActionState = {
+  error?: string;
+  result?: GenerateCourseContentResponse;
 };
 
 export async function createCourseAction(
@@ -270,6 +282,46 @@ export async function uploadCourseMaterialAction(
   }
 }
 
+export async function generateCourseAiAction(
+  courseId: string,
+  _state: CourseAiActionState,
+  formData: FormData,
+): Promise<CourseAiActionState> {
+  const session = await requireSession();
+  const task = textValue(formData, "task");
+  const input = textValue(formData, "input");
+  const topicId = textValue(formData, "topicId");
+  if (!isUuid(courseId)) return { error: "Invalid course." };
+  if (!isGenerationTask(task)) return { error: "Choose a valid study action." };
+  if (input.length < 1 || input.length > 12_000) {
+    return { error: "Your request must contain 1 to 12,000 characters." };
+  }
+  if (topicId && !isUuid(topicId)) return { error: "Invalid topic." };
+
+  const course = await getCourseForUser(session.userId, courseId);
+  if (!course) return { error: "You cannot access this course." };
+  if (topicId && !hasTopic(course.topics, topicId)) {
+    return { error: "The selected topic does not belong to this course." };
+  }
+
+  try {
+    const result = await generateCourseContent({
+      userId: session.userId,
+      courseId,
+      topicId: topicId || undefined,
+      task,
+      input,
+    });
+    return { result };
+  } catch (error) {
+    if (error instanceof AiServiceError) return { error: error.message };
+    console.error("Course AI action failed", error);
+    return {
+      error: "The AI request could not be completed. Please try again.",
+    };
+  }
+}
+
 function textValue(formData: FormData, key: string): string {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
@@ -292,6 +344,16 @@ function optionalDate(
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value,
+  );
+}
+
+function isGenerationTask(value: string): value is GenerationTask {
+  return value === "answer" || value === "explain" || value === "summarize";
+}
+
+function hasTopic(topics: CourseTopic[], topicId: string): boolean {
+  return topics.some(
+    (topic) => topic.id === topicId || hasTopic(topic.subtopics, topicId),
   );
 }
 

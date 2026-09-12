@@ -14,12 +14,14 @@ import type { CourseMaterialSummary } from "@/lib/db/material-management";
 import {
   addTopicAction,
   deleteTopicAction,
+  generateCourseAiAction,
   renameTopicAction,
   updateCompletionAction,
   updateConfidenceAction,
   updateTargetDateAction,
   uploadCourseMaterialAction,
   type CourseActionState,
+  type CourseAiActionState,
 } from "../actions";
 
 export function CourseDetail({
@@ -124,6 +126,8 @@ export function CourseDetail({
         )}
       </section>
 
+      <CourseAiPanel course={course} />
+
       <section>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -159,6 +163,119 @@ export function CourseDetail({
         )}
       </section>
     </div>
+  );
+}
+
+function CourseAiPanel({ course }: { course: CourseDetailData }) {
+  const [state, action] = useActionState(
+    generateCourseAiAction.bind(null, course.id),
+    {},
+  );
+  const topicOptions = flattenTopicOptions(course.topics);
+
+  return (
+    <section>
+      <p className="text-sm text-zinc-600">Grounded study help</p>
+      <h2 className="mt-1 text-2xl font-semibold">Ask CadeBit</h2>
+      <form action={action} className="mt-4 border border-black p-4">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="text-sm font-medium">
+            Study action
+            <select
+              className="mt-1 block w-full border border-black bg-white px-3 py-2"
+              defaultValue="answer"
+              name="task"
+            >
+              <option value="answer">Answer a question</option>
+              <option value="explain">Explain a concept</option>
+              <option value="summarize">Summarize material</option>
+            </select>
+          </label>
+          <label className="text-sm font-medium">
+            Topic scope
+            <select
+              className="mt-1 block w-full border border-black bg-white px-3 py-2"
+              defaultValue=""
+              name="topicId"
+            >
+              <option value="">Entire course</option>
+              {topicOptions.map((topic) => (
+                <option key={topic.id} value={topic.id}>
+                  {topic.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <label className="mt-3 block text-sm font-medium">
+          Request
+          <textarea
+            className="mt-1 min-h-28 w-full border border-black px-3 py-2"
+            maxLength={12_000}
+            name="input"
+            placeholder="What would you like to understand?"
+            required
+          />
+        </label>
+        <div className="mt-3">
+          <SubmitButton>Generate</SubmitButton>
+        </div>
+        {state.error ? (
+          <p className="mt-3 text-sm" role="alert">
+            {state.error}
+          </p>
+        ) : null}
+      </form>
+      {state.result ? <CourseAiResult state={state} /> : null}
+    </section>
+  );
+}
+
+function flattenTopicOptions(
+  topics: CourseTopic[],
+  parentLabel = "",
+): Array<{ id: string; label: string }> {
+  return topics.flatMap((topic) => {
+    const label = parentLabel ? `${parentLabel} > ${topic.name}` : topic.name;
+    return [
+      { id: topic.id, label },
+      ...flattenTopicOptions(topic.subtopics, label),
+    ];
+  });
+}
+
+function CourseAiResult({ state }: { state: CourseAiActionState }) {
+  const result = state.result;
+  if (!result) return null;
+  return (
+    <article className="mt-4 border border-black p-5">
+      <p className="whitespace-pre-wrap text-sm leading-6">{result.content}</p>
+      <div className="mt-5 border-t border-zinc-300 pt-4">
+        <h3 className="text-sm font-semibold">Sources</h3>
+        {result.sources.length === 0 ? (
+          <p className="mt-2 text-xs text-zinc-600">
+            No relevant processed course sources were found.
+          </p>
+        ) : (
+          <ol className="mt-2 space-y-3 text-xs">
+            {result.sources.map((source, index) => (
+              <li key={source.chunkId ?? `${source.materialId}-${index}`}>
+                <p className="font-medium">
+                  [{index + 1}] {source.materialTitle}
+                  {source.pageNumber ? ` · page ${source.pageNumber}` : ""}
+                  {source.section ? ` · ${source.section}` : ""}
+                </p>
+                {source.excerpt ? (
+                  <p className="mt-1 leading-5 text-zinc-600">
+                    {source.excerpt}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </article>
   );
 }
 

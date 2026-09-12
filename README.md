@@ -78,6 +78,8 @@ at <http://localhost:8000/health>.
 The internal AI generation contract and its required environment variables are
 documented in [docs/AI_SERVICE.md](docs/AI_SERVICE.md). Course uploads and the
 durable ingestion worker are documented in [docs/INGESTION.md](docs/INGESTION.md).
+Permission-aware semantic retrieval and its diagnostics are documented in
+[docs/RAG.md](docs/RAG.md).
 Use the same
 `AI_SERVICE_TOKEN` in both services; `OPENAI_API_KEY` belongs only in the AI
 service environment.
@@ -91,6 +93,11 @@ independent courses or shared courses. A shared-course admin receives a unique
 six-character join code to give to other students. Topic structure is editable
 only by admins; target dates, completion, confidence, and study activity remain
 specific to each member.
+
+Once a material is processed, every course member can use Ask CadeBit for a
+grounded answer, explanation, or summary. An optional topic selection enriches
+semantic ranking with that topic's hierarchy, and returned page/section source
+references appear beneath the response.
 
 ## Quality checks
 

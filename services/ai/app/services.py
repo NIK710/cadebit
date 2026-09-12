@@ -10,8 +10,10 @@ from .authorization import (
     UnavailableCourseAuthorizer,
 )
 from .config import Settings
+from .embeddings import OpenAIEmbeddingClient
 from .openai_client import OpenAIGenerationClient, UnavailableGenerationClient
 from .orchestration import EmptyGroundingProvider, GenerationOrchestrator
+from .retrieval import PostgresGroundingProvider
 
 
 @dataclass
@@ -39,6 +41,7 @@ async def build_service_container(settings: Settings) -> ServiceContainer:
     else:
         course_authorizer = UnavailableCourseAuthorizer()
 
+    embedding_client: OpenAIEmbeddingClient | None = None
     if settings.openai_api_key:
         generation_client = OpenAIGenerationClient(
             api_key=settings.openai_api_key,
@@ -47,12 +50,31 @@ async def build_service_container(settings: Settings) -> ServiceContainer:
             max_retries=settings.openai_max_retries,
             max_output_tokens=settings.openai_max_output_tokens,
         )
+        if pool is not None:
+            embedding_client = OpenAIEmbeddingClient(
+                api_key=settings.openai_api_key,
+                model=settings.embedding_model,
+                timeout_seconds=settings.openai_timeout_seconds,
+                max_retries=settings.openai_max_retries,
+            )
+            grounding_provider = PostgresGroundingProvider(
+                pool,
+                embedding_client,
+                top_k=settings.rag_top_k,
+                minimum_similarity=settings.rag_min_similarity,
+                max_context_characters=settings.rag_max_context_characters,
+            )
+        else:
+            grounding_provider = EmptyGroundingProvider()
     else:
         generation_client = UnavailableGenerationClient()
+        grounding_provider = EmptyGroundingProvider()
 
     async def close() -> None:
         if isinstance(generation_client, OpenAIGenerationClient):
             await generation_client.close()
+        if embedding_client is not None:
+            await embedding_client.close()
         if pool is not None:
             await pool.close()
 
@@ -61,7 +83,7 @@ async def build_service_container(settings: Settings) -> ServiceContainer:
         course_authorizer=course_authorizer,
         orchestrator=GenerationOrchestrator(
             generation_client,
-            EmptyGroundingProvider(),
+            grounding_provider,
         ),
         close_callback=close,
     )

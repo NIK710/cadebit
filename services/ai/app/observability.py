@@ -34,6 +34,23 @@ class JsonFormatter(logging.Formatter):
             "job_id",
             "attempt",
             "chunk_count",
+            "course_id",
+            "topic_id",
+            "task",
+            "source_count",
+            "result_count",
+            "top_k",
+            "top_similarity",
+            "lowest_similarity",
+            "topic_depth",
+            "embedding_model",
+            "embedding_input_tokens",
+            "query_characters",
+            "context_characters",
+            "model",
+            "input_tokens",
+            "output_tokens",
+            "total_tokens",
         ):
             value = getattr(record, field, None)
             if value is not None:

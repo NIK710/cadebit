@@ -3,7 +3,12 @@ from uuid import uuid4
 
 from app.contracts import GenerateRequest, GenerationTask, SourceReference, TokenUsage
 from app.openai_client import ModelRequest, ModelResponse
-from app.orchestration import GenerationOrchestrator, GroundingSource
+from app.orchestration import (
+    GenerationOrchestrator,
+    GroundingResult,
+    GroundingSource,
+    RetrievalDiagnostics,
+)
 
 
 class RecordingClient:
@@ -23,9 +28,23 @@ class StaticGroundingProvider:
     def __init__(self, sources: tuple[GroundingSource, ...]) -> None:
         self.sources = sources
 
-    async def retrieve(self, request: GenerateRequest) -> tuple[GroundingSource, ...]:
+    async def retrieve(self, request: GenerateRequest) -> GroundingResult:
         del request
-        return self.sources
+        return GroundingResult(
+            sources=self.sources,
+            diagnostics=RetrievalDiagnostics(
+                duration_ms=1,
+                embedding_input_tokens=4,
+                query_characters=20,
+                context_characters=sum(len(source.content) for source in self.sources),
+                result_count=len(self.sources),
+                top_k=6,
+                top_similarity=0.9 if self.sources else None,
+                lowest_similarity=0.9 if self.sources else None,
+                topic_depth=0,
+                embedding_model="test-embedding",
+            ),
+        )
 
 
 def make_request() -> GenerateRequest:
@@ -60,7 +79,9 @@ def test_orchestrator_returns_structured_source_references():
     assert response.request_id == "request-1"
     assert client.request is not None
     assert "Use only the supplied course sources" in client.request.instructions
+    assert "Cite supporting sources inline as [1]" in client.request.instructions
     assert str(reference.material_id) in client.request.input
+    assert str(reference.chunk_id) in client.request.input
 
 
 def test_orchestrator_does_not_claim_grounding_without_sources():

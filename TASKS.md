@@ -111,15 +111,15 @@ Do not spend time on elaborate branding or visual design yet.
 
 ## Phase 6 — RAG
 
-- [ ] Implement permission-aware retrieval
-- [ ] Filter retrieval by authorized course/material
-- [ ] Add optional topic/subtopic filtering
-- [ ] Return source metadata with retrieval results
-- [ ] Build grounded Q&A
-- [ ] Build grounded explanation generation
-- [ ] Build grounded summaries
-- [ ] Surface source references in UI
-- [ ] Add retrieval latency/token logging
+- [x] Implement permission-aware retrieval
+- [x] Filter retrieval by authorized course/material
+- [x] Add optional topic/subtopic filtering
+- [x] Return source metadata with retrieval results
+- [x] Build grounded Q&A
+- [x] Build grounded explanation generation
+- [x] Build grounded summaries
+- [x] Surface source references in UI
+- [x] Add retrieval latency/token logging
 
 ## Phase 7 — Adaptive Study
 

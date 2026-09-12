@@ -12,6 +12,7 @@ from app.openai_client import (
     GenerationUnavailableError,
     GenerationUpstreamError,
 )
+from app.retrieval import InvalidTopicScopeError
 from app.services import ServiceContainer
 
 
@@ -142,3 +143,17 @@ def test_generate_returns_stable_validation_error():
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "invalid_request"
+
+
+def test_generate_rejects_a_topic_outside_the_course():
+    response = post(
+        make_app(
+            error=InvalidTopicScopeError(
+                "The selected topic does not belong to this course."
+            )
+        ),
+        headers={"Authorization": "Bearer secret"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "invalid_topic_scope"

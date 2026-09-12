@@ -59,10 +59,10 @@ generation code.
 
 Source references are structured data so the web app can render citations
 without parsing model-written text. Material ingestion is implemented by the
-separate worker documented in [INGESTION.md](INGESTION.md). Retrieval remains a
-Phase 6 concern, so the current generation path still returns `"sources": []`
-and the model is instructed not to claim course grounding or substitute general
-knowledge.
+separate worker documented in [INGESTION.md](INGESTION.md), and permission-aware
+semantic retrieval is documented in [RAG.md](RAG.md). When no relevant processed
+material is retrieved, the response contains `"sources": []` and the model is
+instructed not to claim course grounding or substitute general knowledge.
 
 ## Failures
 
@@ -82,7 +82,7 @@ The primary statuses are:
 
 - `401` invalid or missing service token
 - `403` user is not a course member
-- `422` invalid request contract
+- `422` invalid request contract or topic outside the requested course
 - `429` OpenAI rate limit
 - `502` invalid or rejected upstream response
 - `503` missing configuration, database authorization failure, or connection
@@ -99,6 +99,9 @@ contents, credentials, or generated content.
 - `authorization.py` owns service authentication and PostgreSQL membership
   authorization.
 - `orchestration.py` owns task instructions and grounding orchestration.
+- `retrieval.py` owns permission-scoped pgvector retrieval and semantic topic
+  context.
+- `embeddings.py` is the isolated query/document embedding client.
 - `openai_client.py` is the isolated OpenAI Responses API adapter.
 - `apps/web/lib/ai-service.ts` is the server-only Next.js adapter.
 
@@ -113,3 +116,8 @@ Set the same strong random `AI_SERVICE_TOKEN` for the web and AI services. The
 AI service also requires `OPENAI_API_KEY` to generate. `OPENAI_MODEL` is
 configurable and defaults to `gpt-5.6-luna`; timeouts, retries, and output limits
 are configurable through the variables documented in the service `.env.example`.
+
+Retrieval uses `OPENAI_EMBEDDING_MODEL` and the `RAG_TOP_K`,
+`RAG_MIN_SIMILARITY`, and `RAG_MAX_CONTEXT_CHARACTERS` controls documented in
+the service `.env.example`. The embedding model must match the model stored on
+ingested chunks.

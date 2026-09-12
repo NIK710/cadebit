@@ -14,6 +14,12 @@ from .authorization import (
 )
 from .config import get_settings
 from .contracts import ErrorDetail, ErrorResponse, HealthResponse
+from .embeddings import (
+    EmbeddingRateLimitError,
+    EmbeddingTimeoutError,
+    EmbeddingUnavailableError,
+    EmbeddingUpstreamError,
+)
 from .observability import configure_logging, get_request_id, request_logging_middleware
 from .openai_client import (
     GenerationRateLimitError,
@@ -21,6 +27,7 @@ from .openai_client import (
     GenerationUnavailableError,
     GenerationUpstreamError,
 )
+from .retrieval import InvalidTopicScopeError, RetrievalUnavailableError
 from .routes.generate import router as generate_router
 from .services import ServiceContainer, build_service_container
 
@@ -48,7 +55,7 @@ def create_app(services: ServiceContainer | None = None) -> FastAPI:
 
     application = FastAPI(
         title="CadeBit AI Service",
-        version="0.2.0",
+        version="0.3.0",
         debug=settings.environment == "development",
         lifespan=lifespan,
     )
@@ -69,15 +76,21 @@ def create_app(services: ServiceContainer | None = None) -> FastAPI:
             "service_authentication_unavailable",
         ),
         (CourseAccessDeniedError, 403, "course_access_denied"),
+        (InvalidTopicScopeError, 422, "invalid_topic_scope"),
         (
             CourseAuthorizationUnavailableError,
             503,
             "course_authorization_unavailable",
         ),
         (GenerationTimeoutError, 504, "generation_timeout"),
+        (EmbeddingTimeoutError, 504, "retrieval_embedding_timeout"),
         (GenerationRateLimitError, 429, "generation_rate_limited"),
+        (EmbeddingRateLimitError, 429, "retrieval_embedding_rate_limited"),
         (GenerationUnavailableError, 503, "generation_unavailable"),
+        (EmbeddingUnavailableError, 503, "retrieval_embedding_unavailable"),
+        (RetrievalUnavailableError, 503, "retrieval_unavailable"),
         (GenerationUpstreamError, 502, "generation_upstream_error"),
+        (EmbeddingUpstreamError, 502, "retrieval_embedding_upstream_error"),
     ]
 
     for exception_type, status_code, error_code in exception_mappings:
