@@ -1,4 +1,4 @@
-.PHONY: lint format format-check test
+.PHONY: lint format format-check test eval
 
 lint:
 	cd apps/web && npm run lint
@@ -16,3 +16,6 @@ format-check:
 test:
 	cd apps/web && npm test
 	cd services/ai && .venv/bin/pytest
+
+eval:
+	cd services/ai && .venv/bin/python -m evaluation --suite retrieval --fail-on-regression

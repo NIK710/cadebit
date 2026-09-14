@@ -1,0 +1,13 @@
+{
+  "config_version": "phase8-v1",
+  "thresholds": {
+    "retrieval_recall_at_k": 1.0,
+    "retrieval_precision_at_k": 1.0,
+    "retrieval_mrr": 1.0,
+    "grounding_pass_rate": 0.9,
+    "question_quality_mean": 0.8,
+    "grading_expected_range_rate": 0.9,
+    "grading_max_score_spread": 0.2
+  },
+  "baseline_regression_tolerance": 0.02
+}

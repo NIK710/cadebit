@@ -134,5 +134,21 @@ jobs:
       - name: Test
         run: python -m pytest
 
+      - name: Run deterministic AI regression evaluation
+        working-directory: services/ai
+        env:
+          EVAL_DATABASE_URL: postgresql://cadebit:cadebit@127.0.0.1:5432/cadebit_ai_test
+        run: >-
+          python -m evaluation
+          --suite retrieval
+          --output /tmp/cadebit-retrieval-evaluation.json
+          --fail-on-regression
+
+      - name: Upload deterministic evaluation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: deterministic-retrieval-evaluation
+          path: /tmp/cadebit-retrieval-evaluation.json
+
       - name: Validate Compose configuration
         run: docker compose config --quiet

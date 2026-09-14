@@ -80,6 +80,8 @@ documented in [docs/AI_SERVICE.md](docs/AI_SERVICE.md). Course uploads and the
 durable ingestion worker are documented in [docs/INGESTION.md](docs/INGESTION.md).
 Permission-aware semantic retrieval and its diagnostics are documented in
 [docs/RAG.md](docs/RAG.md).
+The repository-owned retrieval and model-quality regression harness is
+documented in [docs/EVALUATION.md](docs/EVALUATION.md).
 Use the same
 `AI_SERVICE_TOKEN` in both services; `OPENAI_API_KEY` belongs only in the AI
 service environment.

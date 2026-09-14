@@ -23,6 +23,7 @@ venv/
 .ruff_cache/
 .coverage
 htmlcov/
+artifacts/evaluations/
 
 # Local agent metadata
 .agents/

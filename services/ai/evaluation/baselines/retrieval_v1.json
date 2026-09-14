@@ -1,0 +1,9 @@
+{
+  "schema_version": "evaluation-baseline-v1",
+  "dataset_version": "retrieval-v1",
+  "aggregates": {
+    "retrieval_recall_at_k": 1.0,
+    "retrieval_precision_at_k": 1.0,
+    "retrieval_mrr": 1.0
+  }
+}

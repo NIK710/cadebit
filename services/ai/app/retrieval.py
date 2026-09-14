@@ -13,6 +13,8 @@ from .orchestration import (
     RetrievalDiagnostics,
 )
 
+RETRIEVAL_QUERY_VERSION = "semantic-query-v1"
+
 
 class InvalidTopicScopeError(Exception):
     pass

@@ -11,6 +11,8 @@ from .contracts import (
 )
 from .openai_client import GenerationClient, ModelRequest
 
+GENERATION_PROMPT_VERSION = "generation-v1"
+
 
 @dataclass(frozen=True)
 class GroundingSource:

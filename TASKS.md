@@ -135,15 +135,15 @@ Do not spend time on elaborate branding or visual design yet.
 
 ## Phase 8 — Evaluation
 
-- [ ] Build labeled retrieval evaluation set
-- [ ] Measure Recall@K
-- [ ] Measure Precision@K
-- [ ] Measure ranking/MRR where useful
-- [ ] Add grounding checks
-- [ ] Evaluate generated-question quality
-- [ ] Evaluate grading consistency
-- [ ] Add regression evaluation command
-- [ ] Record model/prompt configuration in eval outputs
+- [x] Build labeled retrieval evaluation set
+- [x] Measure Recall@K
+- [x] Measure Precision@K
+- [x] Measure ranking/MRR where useful
+- [x] Add grounding checks
+- [x] Evaluate generated-question quality
+- [x] Evaluate grading consistency
+- [x] Add regression evaluation command
+- [x] Record model/prompt configuration in eval outputs
 
 ## Phase 9 — Product / Reliability
 
