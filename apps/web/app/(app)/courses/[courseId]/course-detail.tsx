@@ -84,6 +84,24 @@ export function CourseDetail({
         />
       </section>
 
+      <section className="border border-black p-5">
+        <p className="text-sm text-zinc-600">Adaptive practice</p>
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold">Study the next topic</h2>
+            <p className="mt-1 text-sm text-zinc-600">
+              Practice with grounded questions and update your system mastery.
+            </p>
+          </div>
+          <Link
+            className="border border-black px-4 py-2 text-sm hover:bg-zinc-100"
+            href={`/courses/${course.id}/study`}
+          >
+            Start studying
+          </Link>
+        </div>
+      </section>
+
       <section className="max-w-xl">
         <TargetDateForm courseId={course.id} targetDate={course.targetDate} />
       </section>

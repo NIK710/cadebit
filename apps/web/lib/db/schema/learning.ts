@@ -161,6 +161,108 @@ export const assessmentEvidence = pgTable(
   ],
 );
 
+export const practiceQuestions = pgTable(
+  "practice_questions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    studySessionId: uuid("study_session_id")
+      .notNull()
+      .references(() => studySessions.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    courseId: uuid("course_id")
+      .notNull()
+      .references(() => courses.id, { onDelete: "cascade" }),
+    topicId: uuid("topic_id")
+      .notNull()
+      .references(() => topics.id, { onDelete: "cascade" }),
+    question: text("question").notNull(),
+    referenceAnswer: text("reference_answer").notNull(),
+    gradingRubric: text("grading_rubric").notNull(),
+    difficulty: numeric("difficulty", { precision: 5, scale: 4 }).notNull(),
+    sourceReferences: jsonb("source_references")
+      .$type<Array<Record<string, unknown>>>()
+      .notNull()
+      .default([]),
+    model: text("model").notNull(),
+    promptVersion: text("prompt_version").notNull(),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("practice_questions_session_created_idx").on(
+      table.studySessionId,
+      table.createdAt,
+    ),
+    index("practice_questions_user_course_idx").on(
+      table.userId,
+      table.courseId,
+    ),
+    check(
+      "practice_questions_difficulty_range",
+      sql`${table.difficulty} >= 0 and ${table.difficulty} <= 1`,
+    ),
+    check(
+      "practice_questions_question_not_blank",
+      sql`length(trim(${table.question})) > 0`,
+    ),
+    check(
+      "practice_questions_reference_not_blank",
+      sql`length(trim(${table.referenceAnswer})) > 0`,
+    ),
+    check(
+      "practice_questions_rubric_not_blank",
+      sql`length(trim(${table.gradingRubric})) > 0`,
+    ),
+  ],
+);
+
+export const userTopicMastery = pgTable(
+  "user_topic_mastery",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    courseId: uuid("course_id")
+      .notNull()
+      .references(() => courses.id, { onDelete: "cascade" }),
+    topicId: uuid("topic_id")
+      .notNull()
+      .references(() => topics.id, { onDelete: "cascade" }),
+    score: numeric("score", { precision: 5, scale: 4 }).notNull(),
+    evidenceCount: integer("evidence_count").notNull(),
+    formulaVersion: text("formula_version").notNull(),
+    lastAssessedAt: timestamp("last_assessed_at", {
+      withTimezone: true,
+    }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.topicId] }),
+    index("user_topic_mastery_user_course_idx").on(
+      table.userId,
+      table.courseId,
+    ),
+    check(
+      "user_topic_mastery_score_range",
+      sql`${table.score} >= 0 and ${table.score} <= 1`,
+    ),
+    check(
+      "user_topic_mastery_evidence_count_positive",
+      sql`${table.evidenceCount} > 0`,
+    ),
+    check(
+      "user_topic_mastery_formula_not_blank",
+      sql`length(trim(${table.formulaVersion})) > 0`,
+    ),
+  ],
+);
+
 export const activityEvents = pgTable(
   "activity_events",
   {

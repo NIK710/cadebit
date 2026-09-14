@@ -99,6 +99,12 @@ grounded answer, explanation, or summary. An optional topic selection enriches
 semantic ranking with that topic's hierarchy, and returned page/section source
 references appear beneath the response.
 
+The course page also links to an adaptive study flow. It recommends a topic
+deterministically from schedule urgency, target-date pressure, completion,
+recency, and system mastery; generates a source-grounded practice question;
+grades against its stored rubric; and preserves raw evidence separately from
+the student's self-confidence rating.
+
 ## Quality checks
 
 Run the repository checks from the project root:

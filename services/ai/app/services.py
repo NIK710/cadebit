@@ -13,6 +13,8 @@ from .config import Settings
 from .embeddings import OpenAIEmbeddingClient
 from .openai_client import OpenAIGenerationClient, UnavailableGenerationClient
 from .orchestration import EmptyGroundingProvider, GenerationOrchestrator
+from .practice import PracticeOrchestrator
+from .practice_client import OpenAIPracticeClient, UnavailablePracticeClient
 from .retrieval import PostgresGroundingProvider
 
 
@@ -21,6 +23,7 @@ class ServiceContainer:
     token_verifier: ServiceTokenVerifier
     course_authorizer: CourseAuthorizer
     orchestrator: GenerationOrchestrator
+    practice_orchestrator: PracticeOrchestrator | None = None
     close_callback: Callable[[], Awaitable[None]] | None = None
 
     async def close(self) -> None:
@@ -50,6 +53,13 @@ async def build_service_container(settings: Settings) -> ServiceContainer:
             max_retries=settings.openai_max_retries,
             max_output_tokens=settings.openai_max_output_tokens,
         )
+        practice_client = OpenAIPracticeClient(
+            api_key=settings.openai_api_key,
+            model=settings.openai_model,
+            timeout_seconds=settings.openai_timeout_seconds,
+            max_retries=settings.openai_max_retries,
+            max_output_tokens=settings.openai_max_output_tokens,
+        )
         if pool is not None:
             embedding_client = OpenAIEmbeddingClient(
                 api_key=settings.openai_api_key,
@@ -68,11 +78,14 @@ async def build_service_container(settings: Settings) -> ServiceContainer:
             grounding_provider = EmptyGroundingProvider()
     else:
         generation_client = UnavailableGenerationClient()
+        practice_client = UnavailablePracticeClient()
         grounding_provider = EmptyGroundingProvider()
 
     async def close() -> None:
         if isinstance(generation_client, OpenAIGenerationClient):
             await generation_client.close()
+        if isinstance(practice_client, OpenAIPracticeClient):
+            await practice_client.close()
         if embedding_client is not None:
             await embedding_client.close()
         if pool is not None:
@@ -83,6 +96,10 @@ async def build_service_container(settings: Settings) -> ServiceContainer:
         course_authorizer=course_authorizer,
         orchestrator=GenerationOrchestrator(
             generation_client,
+            grounding_provider,
+        ),
+        practice_orchestrator=PracticeOrchestrator(
+            practice_client,
             grounding_provider,
         ),
         close_callback=close,

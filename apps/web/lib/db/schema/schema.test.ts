@@ -13,6 +13,7 @@ import {
   materials,
   materialChunks,
   materialIngestionJobs,
+  practiceQuestions,
   scheduleItems,
   sessions,
   studySessions,
@@ -20,6 +21,7 @@ import {
   userCourseSchedules,
   users,
   userSelfAssessments,
+  userTopicMastery,
   userTopicProgress,
   verifications,
 } from ".";
@@ -36,6 +38,7 @@ describe("canonical database schema", () => {
       materials,
       materialChunks,
       materialIngestionJobs,
+      practiceQuestions,
       scheduleItems,
       sessions,
       studySessions,
@@ -43,17 +46,20 @@ describe("canonical database schema", () => {
       userCourseSchedules,
       users,
       userSelfAssessments,
+      userTopicMastery,
       userTopicProgress,
       verifications,
     ].map(getTableName);
 
-    expect(new Set(tableNames).size).toBe(18);
+    expect(new Set(tableNames).size).toBe(20);
     expect(tableNames).toContain("users");
     expect(tableNames).toContain("course_memberships");
     expect(tableNames).toContain("assessment_evidence");
     expect(tableNames).toContain("activity_events");
     expect(tableNames).toContain("material_chunks");
     expect(tableNames).toContain("material_ingestion_jobs");
+    expect(tableNames).toContain("practice_questions");
+    expect(tableNames).toContain("user_topic_mastery");
   });
 
   it("creates the topics composite unique index before its self-reference", () => {

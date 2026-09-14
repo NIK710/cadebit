@@ -1,6 +1,7 @@
 # AI service contract
 
-The FastAPI service exposes one internal generation endpoint:
+The FastAPI service exposes internal generation endpoints. The general-purpose
+contract remains:
 
 ```text
 POST /v1/generate
@@ -64,6 +65,26 @@ semantic retrieval is documented in [RAG.md](RAG.md). When no relevant processed
 material is retrieved, the response contains `"sources": []` and the model is
 instructed not to claim course grounding or substitute general knowledge.
 
+## Adaptive practice
+
+Phase 7 adds two focused server-to-server endpoints without changing
+`/v1/generate`:
+
+- `POST /v1/practice/questions` accepts `user_id`, `course_id`, `topic_id`, and
+  a 0-to-1 `difficulty`. It uses authorization-aware retrieval and returns one
+  structured question, reference answer, grading rubric, source references,
+  model, prompt version, and token usage. It fails when no processed course
+  evidence is available rather than generating an ungrounded question.
+- `POST /v1/practice/grade` accepts the stored question, reference answer,
+  rubric, student answer, and difficulty. It returns a normalized score,
+  correctness decision, feedback, strengths, gaps, model, prompt version, and
+  token usage.
+
+These endpoints are called only by Next.js. Next.js obtains the authenticated
+user, rechecks the course/session/question relationship, stores the hidden
+reference answer and rubric, and returns only safe question or feedback fields
+to browser code. FastAPI does not own study-session state or assessment tables.
+
 ## Failures
 
 All expected failures use the same envelope:
@@ -103,6 +124,9 @@ contents, credentials, or generated content.
   context.
 - `embeddings.py` is the isolated query/document embedding client.
 - `openai_client.py` is the isolated OpenAI Responses API adapter.
+- `routes/practice.py` is the focused adaptive-practice transport layer.
+- `practice.py` orchestrates grounded question generation and rubric grading.
+- `practice_client.py` isolates Structured Outputs calls to OpenAI.
 - `apps/web/lib/ai-service.ts` is the server-only Next.js adapter.
 
 Drizzle remains the sole schema and migration owner. The AI service reads

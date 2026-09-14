@@ -123,15 +123,15 @@ Do not spend time on elaborate branding or visual design yet.
 
 ## Phase 7 — Adaptive Study
 
-- [ ] Generate practice questions
-- [ ] Support structured answer grading
-- [ ] Store assessment evidence
-- [ ] Derive initial mastery/confidence signal
-- [ ] Keep AI assessment separate from self-assessment
-- [ ] Recommend next topic
-- [ ] Incorporate schedule/deadline pressure
-- [ ] Create basic adaptive study session flow
-- [ ] Update progress after study activity
+- [x] Generate practice questions
+- [x] Support structured answer grading
+- [x] Store assessment evidence
+- [x] Derive initial mastery/confidence signal
+- [x] Keep AI assessment separate from self-assessment
+- [x] Recommend next topic
+- [x] Incorporate schedule/deadline pressure
+- [x] Create basic adaptive study session flow
+- [x] Update progress after study activity
 
 ## Phase 8 — Evaluation
 

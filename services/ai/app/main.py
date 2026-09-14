@@ -27,8 +27,10 @@ from .openai_client import (
     GenerationUnavailableError,
     GenerationUpstreamError,
 )
+from .practice import PracticeGroundingUnavailableError
 from .retrieval import InvalidTopicScopeError, RetrievalUnavailableError
 from .routes.generate import router as generate_router
+from .routes.practice import router as practice_router
 from .services import ServiceContainer, build_service_container
 
 
@@ -63,6 +65,7 @@ def create_app(services: ServiceContainer | None = None) -> FastAPI:
         application.state.services = services
     application.middleware("http")(request_logging_middleware)
     application.include_router(generate_router)
+    application.include_router(practice_router)
 
     @application.get("/health", response_model=HealthResponse)
     async def health() -> HealthResponse:
@@ -77,6 +80,11 @@ def create_app(services: ServiceContainer | None = None) -> FastAPI:
         ),
         (CourseAccessDeniedError, 403, "course_access_denied"),
         (InvalidTopicScopeError, 422, "invalid_topic_scope"),
+        (
+            PracticeGroundingUnavailableError,
+            422,
+            "practice_grounding_unavailable",
+        ),
         (
             CourseAuthorizationUnavailableError,
             503,

@@ -35,9 +35,16 @@ separate:
 - `user_self_assessments` records the student's current 1–5 rating.
 - `assessment_evidence` preserves raw quiz and model evidence, including score,
   difficulty, hints, response time, model, and prompt version.
+- `practice_questions` stores grounded questions plus their server-only
+  reference answers, grading rubrics, source references, model, and prompt
+  version.
+- `user_topic_mastery` stores a replaceable system-derived snapshot with its
+  evidence count and formula version. It never overwrites
+  `user_self_assessments`.
 
-No fixed mastery formula is stored in the schema. A derived system assessment
-can evolve without losing the evidence from which it was calculated.
+The initial mastery formula is deterministic and versioned; raw assessment
+evidence remains canonical so the snapshot can be recomputed when the formula
+changes.
 
 ## Time and streaks
 

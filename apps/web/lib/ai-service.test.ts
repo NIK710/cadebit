@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { AiServiceError, generateCourseContent } from "./ai-service";
+import {
+  AiServiceError,
+  generateCourseContent,
+  generatePracticeQuestion,
+  gradePracticeAnswer,
+} from "./ai-service";
 
 const request = {
   userId: "user-1",
@@ -123,5 +128,72 @@ describe("generateCourseContent", () => {
         serviceToken: "secret",
       }),
     ).rejects.toBeInstanceOf(AiServiceError);
+  });
+});
+
+describe("adaptive practice contracts", () => {
+  it("maps a structured grounded question including server-only rubric data", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        request_id: "request-3",
+        response_id: "response-3",
+        question: "Explain lexical capture.",
+        reference_answer: "A closure retains bindings from its defining scope.",
+        grading_rubric:
+          "Full credit identifies definition scope and retained bindings.",
+        difficulty: 0.6,
+        sources: [],
+        model: "gpt-5.6-luna",
+        prompt_version: "practice-question-v1",
+        usage: null,
+      }),
+    );
+
+    const result = await generatePracticeQuestion(
+      {
+        userId: "user-1",
+        courseId: request.courseId,
+        topicId: "a0efffca-6c1a-4c86-97da-68771f2bdf13",
+        difficulty: 0.6,
+      },
+      { fetchImplementation, serviceToken: "secret" },
+    );
+
+    expect(result.gradingRubric).toContain("Full credit");
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      expect.stringContaining("/v1/practice/questions"),
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("maps normalized structured grading", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        request_id: "request-4",
+        response_id: "response-4",
+        score: 0.75,
+        correct: false,
+        feedback: "Good core idea; identify the defining scope.",
+        strengths: ["Retained bindings"],
+        gaps: ["Defining scope"],
+        model: "gpt-5.6-luna",
+        prompt_version: "practice-grading-v1",
+        usage: null,
+      }),
+    );
+    const result = await gradePracticeAnswer(
+      {
+        userId: "user-1",
+        courseId: request.courseId,
+        topicId: "a0efffca-6c1a-4c86-97da-68771f2bdf13",
+        question: "Explain lexical capture.",
+        referenceAnswer: "Reference",
+        gradingRubric: "Rubric",
+        studentAnswer: "Answer",
+        difficulty: 0.6,
+      },
+      { fetchImplementation, serviceToken: "secret" },
+    );
+    expect(result).toMatchObject({ score: 0.75, correct: false });
   });
 });
