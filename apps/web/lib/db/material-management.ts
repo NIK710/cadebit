@@ -28,7 +28,6 @@ export type CourseMaterialSummary = {
   mediaType: string;
   byteSize: number;
   status: "uploaded" | "processing" | "ready" | "failed";
-  failureReason: string | null;
   createdAt: string;
 };
 
@@ -172,7 +171,6 @@ export async function listCourseMaterialsForUser(
       mediaType: materials.mediaType,
       byteSize: materials.byteSize,
       status: materials.status,
-      failureReason: materials.failureReason,
       createdAt: materials.createdAt,
     })
     .from(courseMemberships)
@@ -191,6 +189,86 @@ export async function listCourseMaterialsForUser(
     .then((rows) =>
       rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() })),
     );
+}
+
+export async function removeMaterialFromCourse(
+  {
+    courseId,
+    materialId,
+    userId,
+  }: {
+    courseId: string;
+    materialId: string;
+    userId: string;
+  },
+  deleteObject: (key: string) => Promise<void> = deletePrivateObject,
+): Promise<void> {
+  const storageKey = await db.transaction(async (tx) => {
+    const [membership] = await tx
+      .select({ role: courseMemberships.role })
+      .from(courseMemberships)
+      .where(
+        and(
+          eq(courseMemberships.courseId, courseId),
+          eq(courseMemberships.userId, userId),
+        ),
+      )
+      .limit(1);
+    if (membership?.role !== "admin") {
+      throw new MaterialManagementError(
+        "Only course admins can remove course materials.",
+      );
+    }
+
+    const [attachedMaterial] = await tx
+      .select({ storageKey: materials.storageKey })
+      .from(courseMaterials)
+      .innerJoin(materials, eq(materials.id, courseMaterials.materialId))
+      .where(
+        and(
+          eq(courseMaterials.courseId, courseId),
+          eq(courseMaterials.materialId, materialId),
+        ),
+      )
+      .limit(1);
+    if (!attachedMaterial) {
+      throw new MaterialManagementError("Course material not found.");
+    }
+
+    const associations = await tx
+      .select({ courseId: courseMaterials.courseId })
+      .from(courseMaterials)
+      .where(eq(courseMaterials.materialId, materialId));
+
+    await tx
+      .delete(courseMaterials)
+      .where(
+        and(
+          eq(courseMaterials.courseId, courseId),
+          eq(courseMaterials.materialId, materialId),
+        ),
+      );
+
+    if (associations.length > 1) return null;
+
+    await tx.delete(materials).where(eq(materials.id, materialId));
+    return attachedMaterial.storageKey;
+  });
+
+  if (!storageKey) return;
+  try {
+    await deleteObject(storageKey);
+  } catch (error) {
+    console.error(
+      "Removed material records but failed to delete stored object",
+      {
+        courseId,
+        materialId,
+        storageKey,
+        error,
+      },
+    );
+  }
 }
 
 async function requireCourseAdmin(

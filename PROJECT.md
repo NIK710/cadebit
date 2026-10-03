@@ -18,8 +18,8 @@ CadeBit should help a student answer:
 -   What should I study next?
 -   How well do I actually know each topic?
 -   Am I on pace for my target completion/exam date?
--   Can I get a useful explanation, summary, quiz, or review session
-    grounded in my course material?
+-   Can I learn through a useful adaptive micro-lesson or ask a natural
+    follow-up question grounded in my course material?
 
 The product should support both:
 
@@ -46,7 +46,8 @@ retrieval, evaluation, observability, and deployable services.
 -   Student progress/mastery tracking
 -   Study schedule and target dates
 -   Time-spent and streak tracking
--   AI-generated summaries/explanations/questions
+-   AI-generated, course-grounded micro-lessons and a secondary
+    course-specific assistant
 -   RAG over course material
 -   Agentic study workflows where they provide real product value
 -   Backend APIs
@@ -132,8 +133,8 @@ Contains:
 -   member roles
 -   topic hierarchy
 -   associated course materials
--   schedule
--   target completion/exam date
+-   shared course configuration
+-   associated per-user schedules and target completion/exam dates
 -   progress configuration
 
 A course with only one member can simply have that user as its admin.
@@ -153,7 +154,10 @@ for everyone.
 
 ### Topics and Subtopics
 
-Courses have a hierarchy such as:
+Courses currently support a maximum of three semantic levels: topic,
+subtopic, and sub-subtopic. The structure should be displayed and edited as a
+visual ordered outline rather than as a collection of parent-selection forms.
+For example:
 
 ``` text
 ECE 313
@@ -173,10 +177,19 @@ Topics/subtopics become the organizing units for:
 -   progress
 -   mastery/confidence
 -   AI retrieval
--   quizzes
+-   adaptive micro-lessons and graded interactions
 -   study scheduling
 -   completion
 -   analytics
+
+Each outline item has a stable sibling position and may have optional context
+or description metadata for retrieval and generation. That context is edited
+on demand and does not need to occupy permanent space in the visible outline.
+Course creation and the bulk editor should share one parser for natural
+indented/bulleted outlines, including validation of the three-level limit.
+Creating a course without an outline remains valid. A future material-derived
+outline must be presented as an editable suggestion unless authoritative
+course material supports treating it as canonical.
 
 ### Independent Course
 
@@ -292,27 +305,45 @@ At-a-glance:
 
 ### Course Page
 
-Central workspace for a course:
+The course page is primarily a learning and progress workspace, not a
+permanent administration screen. It should emphasize:
 
 -   progress
--   topics/subtopics
--   course material
+-   an ordered three-level topic outline
 -   schedule
--   target date
--   study actions
+-   the user-specific target date
+-   starting an adaptive micro-lesson
 -   mastery/confidence
 -   group information where applicable
 
+Infrequent actions should remain discoverable without occupying the main page.
+The target-date summary card opens a small editor modal. Course materials and
+the course-specific CadeBit AI assistant are header actions that open
+modal/drawer interfaces. Material management includes existing status, upload,
+and authorized deletion. Topic administration uses direct item actions and an
+optional bulk outline editor. Provider/server error details are logged, not
+shown to students.
+
 ### Topic / Study Experience
 
-A focused learning surface for:
+A focused guided micro-lesson surface that can interleave:
 
--   explanation
--   summary
--   retrieval-grounded Q&A
--   practice questions
--   quizzes
--   review
+-   concise concept instruction and intuition
+-   worked reasoning/examples
+-   application-oriented multiple-choice questions
+-   concise answer feedback and misconception correction
+-   extensions or targeted clarification based on performance
+
+After a student selects a recommended or alternate topic and starts a session,
+the lesson should begin without a student-facing difficulty choice or separate
+question-generation step. Difficulty is an internal adaptive concern. Lesson
+content uses a typed block contract rather than one large Markdown string, and
+only graded interactions produce system-mastery evidence.
+
+Course-specific grounded Q&A remains available as the secondary **CadeBit AI**
+chat interface. It infers intent and retrieval scope from natural language,
+supports follow-up questions, and surfaces source references. Ordinary chat
+messages and reading explanations do not update mastery.
 
 ### Course Management
 
@@ -414,16 +445,15 @@ Determine weak / due / important topics
         ↓
 Retrieve relevant course material
         ↓
-Choose learning action
-   ┌────┼─────────┐
-explain quiz    review
-   └────┼─────────┘
+Generate a structured micro-lesson
         ↓
-Evaluate response
+Teach → ask → explain → extend
+        ↓
+Evaluate graded MCQ response
         ↓
 Update learning evidence
         ↓
-Choose next action
+Continue, clarify, or increase challenge
 ```
 
 Potential AI tools:
@@ -432,9 +462,8 @@ Potential AI tools:
 -   fetch topic hierarchy
 -   read user mastery
 -   read schedule/deadlines
--   generate explanation
--   generate questions
--   grade structured answers
+-   generate structured explanation/example/MCQ blocks
+-   grade structured MCQ answers
 -   record assessment evidence
 -   recommend next topic
 -   adjust a personalized study plan
@@ -470,8 +499,11 @@ Evaluate:
 -   completeness
 -   unsupported claims
 -   citation/source correctness
--   quality of generated questions
+-   lesson coherence and instructional usefulness
+-   application/reasoning and question relevance
+-   distractor and misconception quality
 -   grading consistency
+-   appropriate difficulty and adaptation
 
 Maintain regression tests so retrieval/prompt/model changes can be
 compared rather than judged only by feel.
@@ -533,8 +565,9 @@ Responsibilities can include:
 -   retrieval
 -   reranking
 -   RAG orchestration
--   question generation
--   answer evaluation/grading
+-   structured micro-lesson generation
+-   MCQ answer evaluation/grading and misconception feedback
+-   course-specific assistant generation
 -   mastery-related ML/heuristics
 -   AI evaluation jobs
 
@@ -739,8 +772,9 @@ Example FastAPI AI endpoints:
 POST /ingest
 POST /retrieve
 POST /answer
-POST /generate-quiz
-POST /grade
+POST /micro-lessons
+POST /micro-lessons/{id}/answers
+POST /course-assistant/messages
 POST /study/recommend-next
 ```
 
@@ -905,25 +939,30 @@ A reasonable implementation order:
     -   summaries
     -   source references
 7.  **Adaptive learning**
-    -   quizzes
-    -   grading
+    -   structured micro-lessons
+    -   application-oriented MCQs and grading
     -   assessment evidence
     -   next-topic recommendation
     -   mastery updates
 8.  **Evaluation**
     -   retrieval test set
-    -   generation quality checks
+    -   lesson, question, grading, and assistant quality checks
     -   regression evaluation
-9.  **Production hardening**
+9.  **Product experience revision**
+    -   learning-focused course page and modal/drawer management actions
+    -   ordered three-level course outline and shared outline parsing
+    -   adaptive micro-lesson experience
+    -   course-specific CadeBit AI chat
+10. **Production hardening**
     -   tests
     -   observability
     -   queues/workers where necessary
     -   CI/CD
     -   deployment
     -   performance/security cleanup
-10. **Email TLDR / notifications**
+11. **Email TLDR / notifications**
     -   only after the core experience is solid
-11. **Future surfaces**
+12. **Future surfaces**
     -   browser extension
     -   mobile app
     -   push notifications
@@ -973,8 +1012,8 @@ CadeBit is successful as an engineering project when a real student can:
 2.  create or join a course;
 3.  see a meaningful topic hierarchy;
 4.  upload/use course material;
-5.  study with AI that is grounded in that material;
-6.  complete questions/reviews;
+5.  study through an adaptive micro-lesson grounded in that material;
+6.  complete low-friction, instructionally relevant graded questions;
 7.  build a persistent mastery profile;
 8.  see what to study next and why;
 9.  adjust a target date and receive an updated plan;

@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useRef, useState, type ReactNode } from "react";
+import {
+  useActionState,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useFormStatus } from "react-dom";
 
 import {
@@ -13,15 +20,14 @@ import type { CourseMaterialSummary } from "@/lib/db/material-management";
 
 import {
   addTopicAction,
+  deleteCourseMaterialAction,
   deleteTopicAction,
-  generateCourseAiAction,
   renameTopicAction,
   updateCompletionAction,
   updateConfidenceAction,
   updateTargetDateAction,
   uploadCourseMaterialAction,
   type CourseActionState,
-  type CourseAiActionState,
 } from "../actions";
 
 export function CourseDetail({
@@ -32,6 +38,8 @@ export function CourseDetail({
   materials: CourseMaterialSummary[];
 }) {
   const isAdmin = course.role === "admin";
+  const [targetDateOpen, setTargetDateOpen] = useState(false);
+  const [materialsOpen, setMaterialsOpen] = useState(false);
 
   return (
     <div className="space-y-8">
@@ -48,6 +56,13 @@ export function CourseDetail({
             <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">
               {course.description || "No description yet."}
             </p>
+            <button
+              className="mt-4 border border-black px-3 py-2 text-sm hover:bg-zinc-100"
+              onClick={() => setMaterialsOpen(true)}
+              type="button"
+            >
+              Course materials
+            </button>
           </div>
           <div className="border border-black px-4 py-3 text-right">
             <p className="text-xs uppercase tracking-wide text-zinc-600">
@@ -70,9 +85,9 @@ export function CourseDetail({
       ) : null}
 
       <section className="grid gap-4 sm:grid-cols-3">
-        <InfoCard
-          label="Target date"
-          value={formatCourseDate(course.targetDate)}
+        <TargetDateCard
+          onEdit={() => setTargetDateOpen(true)}
+          targetDate={course.targetDate}
         />
         <InfoCard
           label="Topics completed"
@@ -101,50 +116,6 @@ export function CourseDetail({
           </Link>
         </div>
       </section>
-
-      <section className="max-w-xl">
-        <TargetDateForm courseId={course.id} targetDate={course.targetDate} />
-      </section>
-
-      <section>
-        <div>
-          <p className="text-sm text-zinc-600">Course knowledge</p>
-          <h2 className="mt-1 text-2xl font-semibold">Materials</h2>
-        </div>
-        {isAdmin ? <MaterialUploadForm courseId={course.id} /> : null}
-        {materials.length === 0 ? (
-          <p className="mt-4 border border-black p-5 text-sm text-zinc-600">
-            No course materials have been uploaded.
-          </p>
-        ) : (
-          <div className="mt-4 divide-y divide-zinc-300 border border-black">
-            {materials.map((material) => (
-              <article
-                className="flex flex-wrap items-center justify-between gap-3 p-4"
-                key={material.id}
-              >
-                <div>
-                  <h3 className="font-semibold">{material.title}</h3>
-                  <p className="text-xs text-zinc-600">
-                    {material.originalFilename} ·{" "}
-                    {formatFileSize(material.byteSize)}
-                  </p>
-                  {material.failureReason ? (
-                    <p className="mt-1 text-xs" role="alert">
-                      {material.failureReason}
-                    </p>
-                  ) : null}
-                </div>
-                <span className="border border-black px-2 py-1 text-xs uppercase">
-                  {material.status}
-                </span>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <CourseAiPanel course={course} />
 
       <section>
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -180,120 +151,165 @@ export function CourseDetail({
           </div>
         )}
       </section>
+
+      {targetDateOpen ? (
+        <TargetDateModal
+          courseId={course.id}
+          onClose={() => setTargetDateOpen(false)}
+          targetDate={course.targetDate}
+        />
+      ) : null}
+      {materialsOpen ? (
+        <CourseMaterialsModal
+          courseId={course.id}
+          isAdmin={isAdmin}
+          materials={materials}
+          onClose={() => setMaterialsOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
 
-function CourseAiPanel({ course }: { course: CourseDetailData }) {
-  const [state, action] = useActionState(
-    generateCourseAiAction.bind(null, course.id),
+function TargetDateCard({
+  onEdit,
+  targetDate,
+}: {
+  onEdit: () => void;
+  targetDate: string | null;
+}) {
+  return (
+    <div className="border border-black p-4">
+      <p className="text-xs uppercase tracking-wide text-zinc-600">
+        Target date
+      </p>
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <p className="font-semibold">{formatCourseDate(targetDate)}</p>
+        <button
+          aria-label="Edit target date"
+          className="p-1.5 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+          onClick={onEdit}
+          title="Edit target date"
+          type="button"
+        >
+          <PencilIcon />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TargetDateModal({
+  courseId,
+  onClose,
+  targetDate,
+}: {
+  courseId: string;
+  onClose: () => void;
+  targetDate: string | null;
+}) {
+  const [state, action, pending] = useActionState(
+    updateTargetDateAction.bind(null, courseId),
     {},
   );
-  const topicOptions = flattenTopicOptions(course.topics);
+  const submitted = useRef(false);
+
+  useEffect(() => {
+    if (pending) {
+      submitted.current = true;
+      return;
+    }
+    if (submitted.current && state.success) {
+      submitted.current = false;
+      onClose();
+    }
+  }, [onClose, pending, state.success]);
 
   return (
-    <section>
-      <p className="text-sm text-zinc-600">Grounded study help</p>
-      <h2 className="mt-1 text-2xl font-semibold">Ask CadeBit</h2>
-      <form action={action} className="mt-4 border border-black p-4">
-        <div className="grid gap-2 sm:grid-cols-2">
-          <label className="text-sm font-medium">
-            Study action
-            <select
-              className="mt-1 block w-full border border-black bg-white px-3 py-2"
-              defaultValue="answer"
-              name="task"
-            >
-              <option value="answer">Answer a question</option>
-              <option value="explain">Explain a concept</option>
-              <option value="summarize">Summarize material</option>
-            </select>
-          </label>
-          <label className="text-sm font-medium">
-            Topic scope
-            <select
-              className="mt-1 block w-full border border-black bg-white px-3 py-2"
-              defaultValue=""
-              name="topicId"
-            >
-              <option value="">Entire course</option>
-              {topicOptions.map((topic) => (
-                <option key={topic.id} value={topic.id}>
-                  {topic.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <label className="mt-3 block text-sm font-medium">
-          Request
-          <textarea
-            className="mt-1 min-h-28 w-full border border-black px-3 py-2"
-            maxLength={12_000}
-            name="input"
-            placeholder="What would you like to understand?"
-            required
-          />
+    <Modal onClose={onClose} title="Target completion date">
+      <form action={action}>
+        <label className="text-sm font-medium" htmlFor="targetDate">
+          Target completion date
         </label>
-        <div className="mt-3">
-          <SubmitButton>Generate</SubmitButton>
+        <input
+          className="mt-2 block w-full border border-black px-3 py-2"
+          data-modal-initial-focus
+          defaultValue={targetDate ?? ""}
+          id="targetDate"
+          name="targetDate"
+          type="date"
+        />
+        <p className="mt-2 text-xs leading-5 text-zinc-600">
+          This changes only your schedule, including in shared courses.
+        </p>
+        <ActionMessage state={state} />
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            className="border border-black px-4 py-2 text-sm hover:bg-zinc-100"
+            onClick={onClose}
+            type="button"
+          >
+            Cancel
+          </button>
+          <SubmitButton>Save</SubmitButton>
         </div>
-        {state.error ? (
-          <p className="mt-3 text-sm" role="alert">
-            {state.error}
-          </p>
-        ) : null}
       </form>
-      {state.result ? <CourseAiResult state={state} /> : null}
-    </section>
+    </Modal>
   );
 }
 
-function flattenTopicOptions(
-  topics: CourseTopic[],
-  parentLabel = "",
-): Array<{ id: string; label: string }> {
-  return topics.flatMap((topic) => {
-    const label = parentLabel ? `${parentLabel} > ${topic.name}` : topic.name;
-    return [
-      { id: topic.id, label },
-      ...flattenTopicOptions(topic.subtopics, label),
-    ];
-  });
-}
-
-function CourseAiResult({ state }: { state: CourseAiActionState }) {
-  const result = state.result;
-  if (!result) return null;
+function CourseMaterialsModal({
+  courseId,
+  isAdmin,
+  materials,
+  onClose,
+}: {
+  courseId: string;
+  isAdmin: boolean;
+  materials: CourseMaterialSummary[];
+  onClose: () => void;
+}) {
   return (
-    <article className="mt-4 border border-black p-5">
-      <p className="whitespace-pre-wrap text-sm leading-6">{result.content}</p>
-      <div className="mt-5 border-t border-zinc-300 pt-4">
-        <h3 className="text-sm font-semibold">Sources</h3>
-        {result.sources.length === 0 ? (
-          <p className="mt-2 text-xs text-zinc-600">
-            No relevant processed course sources were found.
-          </p>
-        ) : (
-          <ol className="mt-2 space-y-3 text-xs">
-            {result.sources.map((source, index) => (
-              <li key={source.chunkId ?? `${source.materialId}-${index}`}>
-                <p className="font-medium">
-                  [{index + 1}] {source.materialTitle}
-                  {source.pageNumber ? ` · page ${source.pageNumber}` : ""}
-                  {source.section ? ` · ${source.section}` : ""}
-                </p>
-                {source.excerpt ? (
-                  <p className="mt-1 leading-5 text-zinc-600">
-                    {source.excerpt}
-                  </p>
-                ) : null}
-              </li>
-            ))}
-          </ol>
-        )}
+    <Modal onClose={onClose} title="Course materials" wide>
+      <p className="text-sm text-zinc-600">
+        View uploaded course sources and their processing status.
+      </p>
+
+      {isAdmin ? (
+        <MaterialUploadForm courseId={courseId} />
+      ) : (
+        <p className="mt-4 border border-black bg-zinc-100 p-3 text-xs text-zinc-600">
+          Only course admins can upload or remove course materials.
+        </p>
+      )}
+
+      {materials.length === 0 ? (
+        <p className="mt-4 border border-black p-5 text-sm text-zinc-600">
+          No course materials have been uploaded.
+        </p>
+      ) : (
+        <div className="mt-4 divide-y divide-zinc-300 border border-black">
+          {materials.map((material) => (
+            <MaterialRow
+              courseId={courseId}
+              isAdmin={isAdmin}
+              key={material.id}
+              material={material}
+            />
+          ))}
+        </div>
+      )}
+
+      <div className="mt-5 flex justify-end">
+        <button
+          className="border border-black px-4 py-2 text-sm hover:bg-zinc-100"
+          onClick={onClose}
+          type="button"
+        >
+          Close
+        </button>
       </div>
-    </article>
+    </Modal>
   );
 }
 
@@ -331,44 +347,195 @@ function MaterialUploadForm({ courseId }: { courseId: string }) {
   );
 }
 
+function MaterialRow({
+  courseId,
+  isAdmin,
+  material,
+}: {
+  courseId: string;
+  isAdmin: boolean;
+  material: CourseMaterialSummary;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [state, action, pending] = useActionState(
+    deleteCourseMaterialAction.bind(null, courseId),
+    {},
+  );
+
+  return (
+    <article className="p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="font-semibold">{material.title}</h3>
+          <p className="mt-1 break-all text-xs text-zinc-600">
+            {material.originalFilename} · {formatFileSize(material.byteSize)}
+          </p>
+          {material.status === "failed" ? (
+            <p className="mt-2 text-xs" role="alert">
+              Processing failed. Try again.
+            </p>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="border border-black px-2 py-1 text-xs uppercase">
+            {material.status}
+          </span>
+          {isAdmin && !confirming ? (
+            <button
+              aria-label={`Delete ${material.title}`}
+              className="p-1.5 hover:bg-red-50 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black"
+              onClick={() => setConfirming(true)}
+              title={`Delete ${material.title}`}
+              type="button"
+            >
+              <TrashIcon />
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {isAdmin && confirming ? (
+        <form action={action} className="mt-3 border-t border-zinc-300 pt-3">
+          <input name="materialId" type="hidden" value={material.id} />
+          <p className="text-sm font-medium">Remove this course material?</p>
+          <p className="mt-1 text-xs text-zinc-600">
+            It will no longer be available to this course.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button
+              className="border border-black px-3 py-1.5 text-sm hover:bg-zinc-100"
+              disabled={pending}
+              onClick={() => setConfirming(false)}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              className="border border-black px-3 py-1.5 text-sm hover:bg-red-50 hover:text-red-700 disabled:text-zinc-500"
+              disabled={pending}
+              type="submit"
+            >
+              {pending ? "Removing…" : "Remove"}
+            </button>
+          </div>
+          <ActionMessage state={state} />
+        </form>
+      ) : null}
+    </article>
+  );
+}
+
+function Modal({
+  children,
+  onClose,
+  title,
+  wide = false,
+}: {
+  children: ReactNode;
+  onClose: () => void;
+  title: string;
+  wide?: boolean;
+}) {
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const initialFocus =
+      dialogRef.current?.querySelector<HTMLElement>(
+        "[data-modal-initial-focus]",
+      ) ?? closeRef.current;
+    initialFocus?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onCloseRef.current();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div
+        aria-labelledby={titleId}
+        aria-modal="true"
+        className={`max-h-[90vh] w-full overflow-y-auto border border-black bg-white p-5 ${wide ? "max-w-3xl" : "max-w-md"}`}
+        ref={dialogRef}
+        role="dialog"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-zinc-300 pb-3">
+          <h2 className="text-xl font-semibold" id={titleId}>
+            {title}
+          </h2>
+          <button
+            className="border border-black px-2 py-1 text-xs hover:bg-zinc-100"
+            onClick={onClose}
+            ref={closeRef}
+            type="button"
+          >
+            Close
+          </button>
+        </div>
+        <div className="pt-4">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="18"
+      viewBox="0 0 24 24"
+      width="18"
+    >
+      <path
+        d="m4 20 4.25-1 10.5-10.5a2.12 2.12 0 0 0-3-3L5.25 16 4 20Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="18"
+      viewBox="0 0 24 24"
+      width="18"
+    >
+      <path
+        d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function TargetDateForm({
-  courseId,
-  targetDate,
-}: {
-  courseId: string;
-  targetDate: string | null;
-}) {
-  const [state, action] = useActionState(
-    updateTargetDateAction.bind(null, courseId),
-    {},
-  );
-  return (
-    <form action={action} className="border border-black p-4">
-      <label className="text-sm font-medium" htmlFor="targetDate">
-        Your target completion date
-      </label>
-      <p className="mt-1 text-xs text-zinc-600">
-        This changes only your schedule, including in shared courses.
-      </p>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <input
-          className="flex-1 border border-black px-3 py-2"
-          defaultValue={targetDate ?? ""}
-          id="targetDate"
-          name="targetDate"
-          type="date"
-        />
-        <SubmitButton>Save date</SubmitButton>
-      </div>
-      <ActionMessage state={state} />
-    </form>
-  );
 }
 
 function AddTopicForm({ course }: { course: CourseDetailData }) {

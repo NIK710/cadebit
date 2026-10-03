@@ -9,9 +9,10 @@ import {
   createMaterialRecords,
   listCourseMaterialsForUser,
   MaterialManagementError,
+  removeMaterialFromCourse,
 } from "../lib/db/material-management";
 import { db, pool } from "../lib/db";
-import { courses, materials, users } from "../lib/db/schema";
+import { courseMaterials, courses, materials, users } from "../lib/db/schema";
 
 const testId = crypto.randomUUID();
 const adminId = `material-admin-${testId}`;
@@ -93,6 +94,21 @@ describe("course material authorization", () => {
       [],
     );
 
+    await db
+      .update(materials)
+      .set({
+        status: "failed",
+        failureReason:
+          '{"error":{"code":"insufficient_quota","message":"provider account details"}}',
+      })
+      .where(eq(materials.id, materialId));
+    const [failedSummary] = await listCourseMaterialsForUser(
+      adminId,
+      firstCourseId,
+    );
+    expect(failedSummary.status).toBe("failed");
+    expect(failedSummary).not.toHaveProperty("failureReason");
+
     await expect(
       createMaterialRecords({
         byteSize: 12,
@@ -107,5 +123,49 @@ describe("course material authorization", () => {
         userId: memberId,
       }),
     ).rejects.toBeInstanceOf(MaterialManagementError);
+
+    const deletedObjects: string[] = [];
+    const deleteObject = async (key: string) => {
+      deletedObjects.push(key);
+    };
+    await db.insert(courseMaterials).values({
+      courseId: secondCourseId,
+      materialId,
+      attachedByUserId: adminId,
+    });
+
+    await expect(
+      removeMaterialFromCourse(
+        { courseId: firstCourseId, materialId, userId: memberId },
+        deleteObject,
+      ),
+    ).rejects.toThrow("Only course admins can remove course materials.");
+
+    await removeMaterialFromCourse(
+      { courseId: firstCourseId, materialId, userId: adminId },
+      deleteObject,
+    );
+    expect(await listCourseMaterialsForUser(adminId, firstCourseId)).toEqual(
+      [],
+    );
+    expect(
+      await listCourseMaterialsForUser(adminId, secondCourseId),
+    ).toHaveLength(1);
+    expect(deletedObjects).toEqual([]);
+
+    await removeMaterialFromCourse(
+      { courseId: secondCourseId, materialId, userId: adminId },
+      deleteObject,
+    );
+    expect(await listCourseMaterialsForUser(adminId, secondCourseId)).toEqual(
+      [],
+    );
+    expect(deletedObjects).toEqual([`tests/${materialId}`]);
+    expect(
+      await db
+        .select({ id: materials.id })
+        .from(materials)
+        .where(eq(materials.id, materialId)),
+    ).toEqual([]);
   });
 });

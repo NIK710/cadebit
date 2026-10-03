@@ -25,6 +25,7 @@ import {
 import {
   MaterialManagementError,
   MAX_MATERIAL_BYTES,
+  removeMaterialFromCourse,
   SUPPORTED_MATERIAL_TYPES,
   uploadMaterialForCourse,
 } from "@/lib/db/material-management";
@@ -279,6 +280,36 @@ export async function uploadCourseMaterialAction(
       return { error: error.message };
     }
     return actionError(error);
+  }
+}
+
+export async function deleteCourseMaterialAction(
+  courseId: string,
+  _state: CourseActionState,
+  formData: FormData,
+): Promise<CourseActionState> {
+  const session = await requireSession();
+  const materialId = textValue(formData, "materialId");
+  if (!isUuid(courseId) || !isUuid(materialId)) {
+    return { error: "Invalid course material." };
+  }
+
+  try {
+    await removeMaterialFromCourse({
+      courseId,
+      materialId,
+      userId: session.userId,
+    });
+    revalidateCourse(courseId);
+    return { success: "Course material removed." };
+  } catch (error) {
+    if (error instanceof MaterialManagementError) {
+      return { error: error.message };
+    }
+    console.error("Course material removal failed", error);
+    return {
+      error: "The course material could not be removed. Please try again.",
+    };
   }
 }
 
