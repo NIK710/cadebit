@@ -200,26 +200,26 @@ Keep the existing minimal visual language and avoid unrelated redesign work.
 
 ### Phase 9D — Adaptive Micro-Lessons
 
-- [ ] Before implementation, propose the exact Pydantic/TypeScript structured micro-lesson schema plus API and database migration impact for review
-- [ ] Preserve the existing recommended-topic/choose-another-topic/Start Session entry flow unless inspection identifies a strong reason to change it
-- [ ] Automatically begin/generate the lesson after Start Session with essentially no additional setup friction
-- [ ] Remove the student-facing difficulty selector, Foundation/Standard/Challenge choice, Generate Question button, and practice-question framing
-- [ ] Make CadeBit choose internal difficulty from system mastery, prior assessment evidence, current-session performance, and topic history where appropriate
-- [ ] Model a session as an adaptive teaching sequence (teach → ask → explain → extend → ask → explain), not a fixed question/answer loop
-- [ ] Define a typed `MicroLesson` contract with topic, learning objective, estimated minutes, and structured blocks
-- [ ] Support only the initial block types needed now: explanation, example, and MCQ; leave diagrams, interactive equations, simulations, and remedial insertion extensible but unimplemented
-- [ ] Render structured lesson blocks in the frontend instead of one unstructured Markdown payload
-- [ ] Use MCQs as the primary/only graded V1 interaction and remove normal-flow free-response typing
-- [ ] Generate application/reasoning/conceptual questions that build on instruction and avoid trivial recall
-- [ ] Require plausible distractors and retain structured misconception information where feasible
-- [ ] After each answer, show correctness, concise instructional reasoning, and relevant misconception feedback, then continue the lesson
-- [ ] Implement the simplest sound V1 adaptation: incorrect answers can trigger targeted clarification or simpler application; correct answers can continue or increase challenge
-- [ ] Reuse authorization-aware course retrieval and do not add unnecessary agent complexity
-- [ ] Persist graded MCQ interactions as assessment evidence and update system mastery from that evidence
-- [ ] Do not infer mastery from viewing explanation/example blocks, and keep system mastery separate from self-confidence
-- [ ] Extend evaluation for grounding, lesson coherence, instructional usefulness, question relevance, application/reasoning quality, distractor quality, grading correctness, and appropriate difficulty/adaptation
-- [ ] Preserve deterministic retrieval evaluations and useful existing question/grading evaluation coverage
-- [ ] Add contract, orchestration, persistence, mastery, authorization, and end-to-end tests for the micro-lesson flow
+- [x] Before implementation, propose the exact Pydantic/TypeScript structured micro-lesson schema plus API and database migration impact for review
+- [x] Preserve the existing recommended-topic/choose-another-topic/Start Session entry flow unless inspection identifies a strong reason to change it
+- [x] Automatically begin/generate the lesson after Start Session with essentially no additional setup friction
+- [x] Remove the student-facing difficulty selector, Foundation/Standard/Challenge choice, Generate Question button, and practice-question framing
+- [x] Make CadeBit choose internal difficulty from system mastery, prior assessment evidence, current-session performance, and topic history where appropriate
+- [x] Model a session as an adaptive teaching sequence (teach → ask → explain → extend → ask → explain), not a fixed question/answer loop
+- [x] Define a typed `MicroLesson` contract with topic, learning objective, estimated minutes, and structured blocks
+- [x] Support only the initial block types needed now: explanation, example, and MCQ; leave diagrams, interactive equations, simulations, and remedial insertion extensible but unimplemented
+- [x] Render structured lesson blocks in the frontend instead of one unstructured Markdown payload
+- [x] Use MCQs as the primary/only graded V1 interaction and remove normal-flow free-response typing
+- [x] Generate application/reasoning/conceptual questions that build on instruction and avoid trivial recall
+- [x] Require plausible distractors and retain structured misconception information where feasible
+- [x] After each answer, show correctness, concise instructional reasoning, and relevant misconception feedback, then continue the lesson
+- [x] Implement the simplest sound V1 adaptation: incorrect answers can trigger targeted clarification or simpler application; correct answers can continue or increase challenge
+- [x] Reuse authorization-aware course retrieval and do not add unnecessary agent complexity
+- [x] Persist graded MCQ interactions as assessment evidence and update system mastery from that evidence
+- [x] Do not infer mastery from viewing explanation/example blocks, and keep system mastery separate from self-confidence
+- [x] Extend evaluation for grounding, lesson coherence, instructional usefulness, question relevance, application/reasoning quality, distractor quality, grading correctness, and appropriate difficulty/adaptation
+- [x] Preserve deterministic retrieval evaluations and useful existing question/grading evaluation coverage
+- [x] Add contract, orchestration, persistence, mastery, authorization, and end-to-end tests for the micro-lesson flow
 
 ### Phase 9E — CadeBit AI
 

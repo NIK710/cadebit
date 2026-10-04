@@ -29,6 +29,13 @@
       "when": 1789227725446,
       "tag": "0003_exotic_kronos",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791089730656,
+      "tag": "0004_long_khan",
+      "breakpoints": true
     }
   ]
 }

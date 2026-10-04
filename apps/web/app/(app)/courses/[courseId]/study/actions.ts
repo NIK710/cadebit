@@ -2,20 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 
-import {
-  AiServiceError,
-  generatePracticeQuestion,
-  gradePracticeAnswer,
-} from "@/lib/ai-service";
+import { AiServiceError, generateMicroLesson } from "@/lib/ai-service";
 import {
   AdaptiveStudyError,
+  answerMicroLessonMcq,
   completeAdaptiveStudySession,
   getAdaptiveStudyView,
-  getPrivatePracticeQuestion,
-  persistGradedAnswer,
-  requireActiveStudySession,
-  startAdaptiveStudySession,
-  storePracticeQuestion,
+  getMicroLessonGenerationContext,
+  startAdaptiveMicroLesson,
   type AdaptiveStudyView,
 } from "@/lib/db/adaptive-study";
 import { requireSession } from "@/lib/session";
@@ -39,66 +33,41 @@ export async function adaptiveStudyAction(
     if (intent === "start") {
       const topicId = textValue(formData, "topicId");
       if (!isUuid(topicId)) return { error: "Choose a valid topic." };
-      await startAdaptiveStudySession({
+      const context = await getMicroLessonGenerationContext(
+        session.userId,
         courseId,
+        topicId,
+      );
+      const generated = await generateMicroLesson({
+        userId: session.userId,
+        courseId,
+        topicId,
+        topicName: context.topicName,
+        topicContext: context.topicContext || undefined,
+        systemMastery: context.systemMastery,
+        recentAssessments: context.recentAssessments,
+      });
+      await startAdaptiveMicroLesson({
+        courseId,
+        generated,
         topicId,
         userId: session.userId,
       });
-    } else if (intent === "generate") {
-      const sessionId = textValue(formData, "sessionId");
-      const difficulty = Number(textValue(formData, "difficulty"));
-      if (
-        !isUuid(sessionId) ||
-        !Number.isFinite(difficulty) ||
-        difficulty < 0 ||
-        difficulty > 1
-      ) {
-        return { error: "Choose a valid question difficulty." };
-      }
-      const active = await requireActiveStudySession(
-        session.userId,
-        courseId,
-        sessionId,
-      );
-      const generated = await generatePracticeQuestion({
-        userId: session.userId,
-        courseId,
-        topicId: active.topicId,
-        difficulty,
-      });
-      await storePracticeQuestion({
-        generated,
-        sessionId,
-        userId: session.userId,
-        courseId,
-        topicId: active.topicId,
-      });
     } else if (intent === "answer") {
-      const questionId = textValue(formData, "questionId");
-      const answer = textValue(formData, "answer");
-      if (!isUuid(questionId)) return { error: "Invalid practice question." };
-      if (answer.length < 1 || answer.length > 12_000) {
-        return { error: "Your answer must contain 1 to 12,000 characters." };
-      }
-      const question = await getPrivatePracticeQuestion(
-        session.userId,
+      const lessonId = textValue(formData, "lessonId");
+      const blockId = textValue(formData, "blockId");
+      const selectedChoiceId = textValue(formData, "selectedChoiceId");
+      if (
+        !isUuid(lessonId) ||
+        !isBlockId(blockId) ||
+        !isBlockId(selectedChoiceId)
+      )
+        return { error: "Choose a valid answer." };
+      await answerMicroLessonMcq({
+        blockId,
         courseId,
-        questionId,
-      );
-      const graded = await gradePracticeAnswer({
-        userId: session.userId,
-        courseId,
-        topicId: question.topicId,
-        question: question.question,
-        referenceAnswer: question.referenceAnswer,
-        gradingRubric: question.gradingRubric,
-        studentAnswer: answer,
-        difficulty: question.difficulty,
-      });
-      await persistGradedAnswer({
-        answer,
-        graded,
-        question,
+        lessonId,
+        selectedChoiceId,
         userId: session.userId,
       });
     } else if (intent === "complete") {
@@ -116,11 +85,16 @@ export async function adaptiveStudyAction(
     const view = await getAdaptiveStudyView(session.userId, courseId);
     return view ? { view } : { error: "Course not found." };
   } catch (error) {
-    if (
-      error instanceof AdaptiveStudyError ||
-      error instanceof AiServiceError
-    ) {
+    if (error instanceof AdaptiveStudyError) {
       return { error: error.message };
+    }
+    if (error instanceof AiServiceError) {
+      console.error("Micro-lesson generation failed", {
+        code: error.code,
+        status: error.status,
+        requestId: error.requestId,
+      });
+      return { error: "Lesson generation failed. Try again." };
     }
     console.error("Adaptive study action failed", error);
     return {
@@ -144,4 +118,8 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value,
   );
+}
+
+function isBlockId(value: string): boolean {
+  return /^[a-zA-Z0-9_-]{1,64}$/.test(value);
 }

@@ -37,6 +37,7 @@ class RetrievalCase(StrictModel):
 class GenerationKind(StrEnum):
     GROUNDED_ANSWER = "grounded_answer"
     PRACTICE_QUESTION = "practice_question"
+    MICRO_LESSON = "micro_lesson"
 
 
 class EvaluationSource(StrictModel):
@@ -81,6 +82,13 @@ class EvaluationThresholds(StrictModel):
     retrieval_mrr: float = Field(ge=0, le=1)
     grounding_pass_rate: float = Field(ge=0, le=1)
     question_quality_mean: float = Field(ge=0, le=1)
+    lesson_coherence_mean: float = Field(default=0.8, ge=0, le=1)
+    instructional_usefulness_mean: float = Field(default=0.8, ge=0, le=1)
+    lesson_question_relevance_mean: float = Field(default=0.8, ge=0, le=1)
+    application_reasoning_mean: float = Field(default=0.8, ge=0, le=1)
+    distractor_quality_mean: float = Field(default=0.8, ge=0, le=1)
+    mcq_grading_correctness_mean: float = Field(default=0.95, ge=0, le=1)
+    difficulty_appropriateness_mean: float = Field(default=0.75, ge=0, le=1)
     grading_expected_range_rate: float = Field(ge=0, le=1)
     grading_max_score_spread: float = Field(ge=0, le=1)
 

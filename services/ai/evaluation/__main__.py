@@ -8,6 +8,7 @@ from pathlib import Path
 
 import asyncpg
 from app.config import get_settings
+from app.lesson import MICRO_LESSON_PROMPT_VERSION
 from app.openai_client import GenerationClientError, OpenAIGenerationClient
 from app.orchestration import GENERATION_PROMPT_VERSION
 from app.practice import GRADING_PROMPT_VERSION, QUESTION_PROMPT_VERSION
@@ -28,7 +29,10 @@ from .reporting import (
 from .retrieval_runner import FIXTURE_EMBEDDING_MODEL, run_retrieval_suite
 
 EVALUATION_ROOT = Path(__file__).resolve().parent
-REPOSITORY_ROOT = EVALUATION_ROOT.parents[2]
+REPOSITORY_ROOT = next(
+    (parent for parent in EVALUATION_ROOT.parents if (parent / ".git").exists()),
+    EVALUATION_ROOT.parent,
+)
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -114,6 +118,7 @@ async def run(args: argparse.Namespace) -> tuple[dict, Path]:
             timeout_seconds=settings.openai_timeout_seconds,
             max_retries=settings.openai_max_retries,
             max_output_tokens=settings.openai_max_output_tokens,
+            lesson_max_output_tokens=settings.openai_lesson_max_output_tokens,
         )
         judge_client = EvaluationJudgeClient(
             api_key=settings.openai_api_key,
@@ -179,6 +184,7 @@ async def run(args: argparse.Namespace) -> tuple[dict, Path]:
             "generation": GENERATION_PROMPT_VERSION,
             "practice_question": QUESTION_PROMPT_VERSION,
             "practice_grading": GRADING_PROMPT_VERSION,
+            "micro_lesson": MICRO_LESSON_PROMPT_VERSION,
             "evaluation_judge": JUDGE_PROMPT_VERSION,
         },
         "thresholds": config.thresholds.model_dump(),

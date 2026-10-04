@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   date,
   index,
@@ -216,6 +217,93 @@ export const practiceQuestions = pgTable(
     check(
       "practice_questions_rubric_not_blank",
       sql`length(trim(${table.gradingRubric})) > 0`,
+    ),
+  ],
+);
+
+export const microLessons = pgTable(
+  "micro_lessons",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    studySessionId: uuid("study_session_id")
+      .notNull()
+      .references(() => studySessions.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    courseId: uuid("course_id")
+      .notNull()
+      .references(() => courses.id, { onDelete: "cascade" }),
+    topicId: uuid("topic_id")
+      .notNull()
+      .references(() => topics.id, { onDelete: "cascade" }),
+    learningObjective: text("learning_objective").notNull(),
+    estimatedMinutes: integer("estimated_minutes").notNull(),
+    targetDifficulty: numeric("target_difficulty", {
+      precision: 5,
+      scale: 4,
+    }).notNull(),
+    blocks: jsonb("blocks").$type<Array<Record<string, unknown>>>().notNull(),
+    sourceReferences: jsonb("source_references")
+      .$type<Array<Record<string, unknown>>>()
+      .notNull()
+      .default([]),
+    model: text("model").notNull(),
+    promptVersion: text("prompt_version").notNull(),
+    generationRequestId: text("generation_request_id").notNull(),
+    generationResponseId: text("generation_response_id").notNull(),
+    usage: jsonb("usage").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("micro_lessons_study_session_idx").on(table.studySessionId),
+    index("micro_lessons_user_course_idx").on(table.userId, table.courseId),
+    check(
+      "micro_lessons_estimated_minutes_range",
+      sql`${table.estimatedMinutes} between 3 and 20`,
+    ),
+    check(
+      "micro_lessons_target_difficulty_range",
+      sql`${table.targetDifficulty} >= 0 and ${table.targetDifficulty} <= 1`,
+    ),
+    check(
+      "micro_lessons_objective_not_blank",
+      sql`length(trim(${table.learningObjective})) > 0`,
+    ),
+  ],
+);
+
+export const microLessonAnswers = pgTable(
+  "micro_lesson_answers",
+  {
+    microLessonId: uuid("micro_lesson_id")
+      .notNull()
+      .references(() => microLessons.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    blockId: text("block_id").notNull(),
+    selectedChoiceId: text("selected_choice_id").notNull(),
+    correct: boolean("correct").notNull(),
+    answeredAt: timestamp("answered_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.microLessonId, table.blockId] }),
+    index("micro_lesson_answers_user_answered_idx").on(
+      table.userId,
+      table.answeredAt,
+    ),
+    check(
+      "micro_lesson_answers_block_not_blank",
+      sql`length(trim(${table.blockId})) > 0`,
+    ),
+    check(
+      "micro_lesson_answers_choice_not_blank",
+      sql`length(trim(${table.selectedChoiceId})) > 0`,
     ),
   ],
 );

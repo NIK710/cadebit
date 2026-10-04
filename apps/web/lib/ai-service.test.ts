@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   AiServiceError,
   generateCourseContent,
+  generateMicroLesson,
   generatePracticeQuestion,
   gradePracticeAnswer,
 } from "./ai-service";
@@ -195,5 +196,80 @@ describe("adaptive practice contracts", () => {
       { fetchImplementation, serviceToken: "secret" },
     );
     expect(result).toMatchObject({ score: 0.75, correct: false });
+  });
+});
+
+describe("micro-lesson contract", () => {
+  it("maps private structured blocks for server-side persistence", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        request_id: "lesson-request",
+        response_id: "lesson-response",
+        lesson: {
+          topic: {
+            id: "a0efffca-6c1a-4c86-97da-68771f2bdf13",
+            name: "Closures",
+          },
+          learning_objective: "Apply lexical capture.",
+          estimated_minutes: 6,
+          target_difficulty: 0.55,
+          blocks: [
+            {
+              id: "teach-1",
+              type: "explanation",
+              heading: null,
+              body: "A closure retains bindings.",
+            },
+            {
+              id: "check-1",
+              type: "mcq",
+              prompt: "Which binding is retained?",
+              choices: [
+                {
+                  id: "a",
+                  text: "A",
+                  feedback: "Correct.",
+                  misconception: null,
+                },
+                {
+                  id: "b",
+                  text: "B",
+                  feedback: "No.",
+                  misconception: "Dynamic scope",
+                },
+                { id: "c", text: "C", feedback: "No.", misconception: null },
+                { id: "d", text: "D", feedback: "No.", misconception: null },
+              ],
+              correct_choice_id: "a",
+              explanation: "The defining scope is retained.",
+              difficulty: 0.55,
+            },
+          ],
+        },
+        sources: [],
+        model: "test-model",
+        prompt_version: "micro-lesson-v1",
+        usage: null,
+      }),
+    );
+    const result = await generateMicroLesson(
+      {
+        userId: "user-1",
+        courseId: request.courseId,
+        topicId: "a0efffca-6c1a-4c86-97da-68771f2bdf13",
+        topicName: "Closures",
+        systemMastery: null,
+        recentAssessments: [],
+      },
+      { fetchImplementation, serviceToken: "secret" },
+    );
+    expect(result.lesson.blocks[1]).toMatchObject({
+      type: "mcq",
+      correctChoiceId: "a",
+    });
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      expect.stringContaining("/v1/micro-lessons"),
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 });

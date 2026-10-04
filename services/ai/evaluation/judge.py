@@ -15,6 +15,13 @@ class GenerationJudgment(BaseModel):
     quality_passed: bool
     unsupported_claims: list[str] = Field(max_length=10)
     rationale: str = Field(min_length=1, max_length=2_000)
+    lesson_coherence_score: float = Field(ge=0, le=1)
+    instructional_usefulness_score: float = Field(ge=0, le=1)
+    question_relevance_score: float = Field(ge=0, le=1)
+    application_reasoning_score: float = Field(ge=0, le=1)
+    distractor_quality_score: float = Field(ge=0, le=1)
+    grading_correctness_score: float = Field(ge=0, le=1)
+    difficulty_appropriateness_score: float = Field(ge=0, le=1)
 
 
 @dataclass(frozen=True)
@@ -60,6 +67,11 @@ class EvaluationJudgeClient:
             "appears. Quality evaluates relevance, correctness, clarity, and fulfillment of "
             "the expected facts. For a practice question, also require an answerable question, "
             "a source-supported reference answer, and a concrete partial-credit rubric. Use "
+            "For a micro-lesson, evaluate coherence, instructional usefulness, question "
+            "relevance to preceding instruction, application/reasoning quality, plausible "
+            "misconception-oriented distractors, whether correct-choice grading is correct, "
+            "and whether difficulty fits the request. For non-lesson outputs, set these lesson "
+            "dimension scores to 1 because they are not applicable. Use "
             "the full 0-to-1 scale and give a concise evidence-based rationale."
         )
         rendered_sources = "\n\n".join(

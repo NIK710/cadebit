@@ -1,11 +1,12 @@
+import logging
 from dataclasses import dataclass
-from typing import Protocol, TypeVar
+from typing import Literal, Protocol, TypeVar
 
 import openai
 from openai import AsyncOpenAI
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
-from .contracts import TokenUsage
+from .contracts import LessonTopic, McqChoice, TokenUsage
 from .openai_client import (
     GenerationRateLimitError,
     GenerationTimeoutError,
@@ -28,10 +29,33 @@ class GradedAnswer(BaseModel):
     gaps: list[str] = Field(max_length=8)
 
 
+class GeneratedLessonBlock(BaseModel):
+    id: str = Field(pattern=r"^[a-zA-Z0-9_-]{1,64}$")
+    type: Literal["explanation", "example", "mcq"]
+    heading: str | None
+    body: str | None
+    scenario: str | None
+    steps: list[str] | None
+    takeaway: str | None
+    prompt: str | None
+    choices: list[McqChoice] | None
+    correct_choice_id: str | None
+    explanation: str | None
+    difficulty: float | None
+
+
+class GeneratedMicroLesson(BaseModel):
+    topic: LessonTopic
+    learning_objective: str = Field(min_length=1, max_length=500)
+    estimated_minutes: int = Field(ge=3, le=20)
+    target_difficulty: float = Field(ge=0, le=1)
+    blocks: list[GeneratedLessonBlock] = Field(min_length=2, max_length=12)
+
+
 @dataclass(frozen=True)
 class StructuredModelResponse:
     response_id: str
-    output: GeneratedQuestion | GradedAnswer
+    output: GeneratedQuestion | GradedAnswer | GeneratedMicroLesson
     model: str
     usage: TokenUsage | None
 
@@ -45,8 +69,14 @@ class PracticeClient(Protocol):
         self, *, instructions: str, input: str
     ) -> StructuredModelResponse: ...
 
+    async def generate_lesson(
+        self, *, instructions: str, input: str
+    ) -> StructuredModelResponse: ...
 
-StructuredOutput = TypeVar("StructuredOutput", GeneratedQuestion, GradedAnswer)
+
+StructuredOutput = TypeVar(
+    "StructuredOutput", GeneratedQuestion, GradedAnswer, GeneratedMicroLesson
+)
 
 
 class OpenAIPracticeClient:
@@ -58,6 +88,7 @@ class OpenAIPracticeClient:
         timeout_seconds: float,
         max_retries: int,
         max_output_tokens: int,
+        lesson_max_output_tokens: int | None = None,
     ) -> None:
         self._client = AsyncOpenAI(
             api_key=api_key,
@@ -66,6 +97,7 @@ class OpenAIPracticeClient:
         )
         self._model = model
         self._max_output_tokens = max_output_tokens
+        self._lesson_max_output_tokens = lesson_max_output_tokens or max_output_tokens
 
     async def generate_question(
         self, *, instructions: str, input: str
@@ -77,11 +109,23 @@ class OpenAIPracticeClient:
     ) -> StructuredModelResponse:
         return await self._parse(instructions, input, GradedAnswer)
 
+    async def generate_lesson(
+        self, *, instructions: str, input: str
+    ) -> StructuredModelResponse:
+        return await self._parse(
+            instructions,
+            input,
+            GeneratedMicroLesson,
+            max_output_tokens=self._lesson_max_output_tokens,
+        )
+
     async def _parse(
         self,
         instructions: str,
         input: str,
         output_type: type[StructuredOutput],
+        *,
+        max_output_tokens: int | None = None,
     ) -> StructuredModelResponse:
         try:
             response = await self._client.responses.parse(
@@ -90,7 +134,7 @@ class OpenAIPracticeClient:
                 input=input,
                 text_format=output_type,
                 reasoning={"effort": "low"},
-                max_output_tokens=self._max_output_tokens,
+                max_output_tokens=max_output_tokens or self._max_output_tokens,
                 store=False,
             )
         except openai.APITimeoutError as error:
@@ -104,7 +148,21 @@ class OpenAIPracticeClient:
                 "OpenAI is temporarily unavailable."
             ) from error
         except openai.APIError as error:
+            logging.getLogger("cadebit.openai").exception(
+                "OpenAI structured response request failed",
+                exc_info=error,
+                extra={"event": "openai.structured_response.failed"},
+            )
             raise GenerationUpstreamError("OpenAI rejected the request.") from error
+        except ValidationError as error:
+            logging.getLogger("cadebit.openai").exception(
+                "OpenAI structured response could not be parsed",
+                exc_info=error,
+                extra={"event": "openai.structured_response.invalid"},
+            )
+            raise GenerationUpstreamError(
+                "OpenAI returned an incomplete structured response."
+            ) from error
 
         if response.output_parsed is None:
             raise GenerationUpstreamError(
@@ -143,4 +201,12 @@ class UnavailablePracticeClient:
         del instructions, input
         raise GenerationUnavailableError(
             "Practice grading is unavailable because OPENAI_API_KEY is not configured."
+        )
+
+    async def generate_lesson(
+        self, *, instructions: str, input: str
+    ) -> StructuredModelResponse:
+        del instructions, input
+        raise GenerationUnavailableError(
+            "Micro-lesson generation is unavailable because OPENAI_API_KEY is not configured."
         )

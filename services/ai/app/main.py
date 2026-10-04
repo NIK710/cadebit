@@ -30,6 +30,7 @@ from .openai_client import (
 from .practice import PracticeGroundingUnavailableError
 from .retrieval import InvalidTopicScopeError, RetrievalUnavailableError
 from .routes.generate import router as generate_router
+from .routes.lessons import router as lessons_router
 from .routes.practice import router as practice_router
 from .services import ServiceContainer, build_service_container
 
@@ -66,6 +67,7 @@ def create_app(services: ServiceContainer | None = None) -> FastAPI:
     application.middleware("http")(request_logging_middleware)
     application.include_router(generate_router)
     application.include_router(practice_router)
+    application.include_router(lessons_router)
 
     @application.get("/health", response_model=HealthResponse)
     async def health() -> HealthResponse:

@@ -11,6 +11,7 @@ from .authorization import (
 )
 from .config import Settings
 from .embeddings import OpenAIEmbeddingClient
+from .lesson import MicroLessonOrchestrator
 from .openai_client import OpenAIGenerationClient, UnavailableGenerationClient
 from .orchestration import EmptyGroundingProvider, GenerationOrchestrator
 from .practice import PracticeOrchestrator
@@ -24,6 +25,7 @@ class ServiceContainer:
     course_authorizer: CourseAuthorizer
     orchestrator: GenerationOrchestrator
     practice_orchestrator: PracticeOrchestrator | None = None
+    lesson_orchestrator: MicroLessonOrchestrator | None = None
     close_callback: Callable[[], Awaitable[None]] | None = None
 
     async def close(self) -> None:
@@ -59,6 +61,7 @@ async def build_service_container(settings: Settings) -> ServiceContainer:
             timeout_seconds=settings.openai_timeout_seconds,
             max_retries=settings.openai_max_retries,
             max_output_tokens=settings.openai_max_output_tokens,
+            lesson_max_output_tokens=settings.openai_lesson_max_output_tokens,
         )
         if pool is not None:
             embedding_client = OpenAIEmbeddingClient(
@@ -99,6 +102,10 @@ async def build_service_container(settings: Settings) -> ServiceContainer:
             grounding_provider,
         ),
         practice_orchestrator=PracticeOrchestrator(
+            practice_client,
+            grounding_provider,
+        ),
+        lesson_orchestrator=MicroLessonOrchestrator(
             practice_client,
             grounding_provider,
         ),

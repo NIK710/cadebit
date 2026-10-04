@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import {
   deriveMasterySignal,
@@ -9,8 +9,11 @@ import {
   type TopicRecommendation,
 } from "../adaptive-study";
 import type {
+  GeneratedMicroLesson,
   GeneratedPracticeQuestion,
   GradedPracticeAnswer,
+  MicroLessonBlock,
+  MicroLessonMcqBlock,
   SourceReference,
 } from "../ai-service";
 import { db } from ".";
@@ -19,6 +22,8 @@ import {
   assessmentEvidence,
   courseMemberships,
   courses,
+  microLessonAnswers,
+  microLessons,
   practiceQuestions,
   scheduleItems,
   studySessions,
@@ -51,6 +56,29 @@ export type SafeGradeResult = {
   strengths: string[];
   gaps: string[];
 };
+export type SafeMicroLessonBlock =
+  | Extract<MicroLessonBlock, { type: "explanation" | "example" }>
+  | {
+      id: string;
+      type: "mcq";
+      prompt: string;
+      choices: Array<{ id: string; text: string }>;
+      result: null | {
+        selectedChoiceId: string;
+        correct: boolean;
+        explanation: string;
+        selectedFeedback: string;
+        misconception: string | null;
+      };
+    };
+export type SafeMicroLesson = {
+  id: string;
+  learningObjective: string;
+  estimatedMinutes: number;
+  blocks: SafeMicroLessonBlock[];
+  sources: SourceReference[];
+  complete: boolean;
+};
 export type AdaptiveStudyView = {
   courseId: string;
   courseName: string;
@@ -64,7 +92,19 @@ export type AdaptiveStudyView = {
     question: SafePracticeQuestion | null;
     latestResult: SafeGradeResult | null;
     mastery: number | null;
+    lesson: SafeMicroLesson | null;
   };
+};
+
+export type MicroLessonGenerationContext = {
+  topicName: string;
+  topicContext: string;
+  systemMastery: number | null;
+  recentAssessments: Array<{
+    correct: boolean;
+    difficulty: number;
+    misconception?: string;
+  }>;
 };
 
 export type PrivatePracticeQuestion = {
@@ -160,6 +200,37 @@ export async function getAdaptiveStudyView(
       .limit(1);
     latestResult = readSafeGradeResult(evidence?.raw);
   }
+  const [lessonRow] = await db
+    .select({
+      id: microLessons.id,
+      learningObjective: microLessons.learningObjective,
+      estimatedMinutes: microLessons.estimatedMinutes,
+      blocks: microLessons.blocks,
+      sources: microLessons.sourceReferences,
+    })
+    .from(microLessons)
+    .where(
+      and(
+        eq(microLessons.studySessionId, active.id),
+        eq(microLessons.userId, userId),
+      ),
+    )
+    .limit(1);
+  const lessonAnswers = lessonRow
+    ? await db
+        .select({
+          blockId: microLessonAnswers.blockId,
+          selectedChoiceId: microLessonAnswers.selectedChoiceId,
+          correct: microLessonAnswers.correct,
+        })
+        .from(microLessonAnswers)
+        .where(
+          and(
+            eq(microLessonAnswers.microLessonId, lessonRow.id),
+            eq(microLessonAnswers.userId, userId),
+          ),
+        )
+    : [];
   const [mastery] = await db
     .select({ score: userTopicMastery.score })
     .from(userTopicMastery)
@@ -191,8 +262,70 @@ export async function getAdaptiveStudyView(
           : null,
       latestResult,
       mastery: mastery ? Number(mastery.score) : null,
+      lesson: lessonRow
+        ? {
+            id: lessonRow.id,
+            learningObjective: lessonRow.learningObjective,
+            estimatedMinutes: lessonRow.estimatedMinutes,
+            ...projectMicroLesson(
+              lessonRow.blocks as unknown as MicroLessonBlock[],
+              lessonAnswers,
+            ),
+            sources: lessonRow.sources as unknown as SourceReference[],
+          }
+        : null,
     },
   };
+}
+
+export function projectMicroLesson(
+  blocks: MicroLessonBlock[],
+  answers: Array<{
+    blockId: string;
+    selectedChoiceId: string;
+    correct: boolean;
+  }>,
+): { blocks: SafeMicroLessonBlock[]; complete: boolean } {
+  const answerByBlock = new Map(
+    answers.map((answer) => [answer.blockId, answer]),
+  );
+  const projected: SafeMicroLessonBlock[] = [];
+  let stoppedAtUnanswered = false;
+
+  for (const block of blocks) {
+    if (block.type !== "mcq") {
+      projected.push(block);
+      continue;
+    }
+    const answer = answerByBlock.get(block.id);
+    const selected = answer
+      ? block.choices.find((choice) => choice.id === answer.selectedChoiceId)
+      : null;
+    projected.push({
+      id: block.id,
+      type: "mcq",
+      prompt: block.prompt,
+      choices: block.choices.map((choice) => ({
+        id: choice.id,
+        text: choice.text,
+      })),
+      result:
+        answer && selected
+          ? {
+              selectedChoiceId: answer.selectedChoiceId,
+              correct: answer.correct,
+              explanation: block.explanation,
+              selectedFeedback: selected.feedback,
+              misconception: selected.misconception,
+            }
+          : null,
+    });
+    if (!answer) {
+      stoppedAtUnanswered = true;
+      break;
+    }
+  }
+  return { blocks: projected, complete: !stoppedAtUnanswered };
 }
 
 export async function startAdaptiveStudySession({
@@ -217,6 +350,248 @@ export async function startAdaptiveStudySession({
         ),
       );
     await tx.insert(studySessions).values({ userId, courseId, topicId });
+  });
+}
+
+export async function getMicroLessonGenerationContext(
+  userId: string,
+  courseId: string,
+  topicId: string,
+): Promise<MicroLessonGenerationContext> {
+  const [topic] = await db
+    .select({ name: topics.name, description: topics.description })
+    .from(topics)
+    .innerJoin(
+      courseMemberships,
+      and(
+        eq(courseMemberships.courseId, topics.courseId),
+        eq(courseMemberships.userId, userId),
+      ),
+    )
+    .where(and(eq(topics.id, topicId), eq(topics.courseId, courseId)))
+    .limit(1);
+  if (!topic)
+    throw new AdaptiveStudyError(
+      "The selected topic is not available in this course.",
+    );
+
+  const [[mastery], evidence] = await Promise.all([
+    db
+      .select({ score: userTopicMastery.score })
+      .from(userTopicMastery)
+      .where(
+        and(
+          eq(userTopicMastery.userId, userId),
+          eq(userTopicMastery.topicId, topicId),
+        ),
+      )
+      .limit(1),
+    db
+      .select({
+        difficulty: assessmentEvidence.difficulty,
+        raw: assessmentEvidence.rawEvidence,
+      })
+      .from(assessmentEvidence)
+      .where(
+        and(
+          eq(assessmentEvidence.userId, userId),
+          eq(assessmentEvidence.topicId, topicId),
+          inArray(assessmentEvidence.evidenceType, [
+            "graded_practice_answer",
+            "micro_lesson_mcq",
+          ]),
+        ),
+      )
+      .orderBy(desc(assessmentEvidence.occurredAt))
+      .limit(8),
+  ]);
+  return {
+    topicName: topic.name,
+    topicContext: topic.description,
+    systemMastery: mastery ? Number(mastery.score) : null,
+    recentAssessments: evidence.flatMap((row) => {
+      if (typeof row.raw.correct !== "boolean" || row.difficulty === null)
+        return [];
+      return [
+        {
+          correct: row.raw.correct,
+          difficulty: Number(row.difficulty),
+          ...(typeof row.raw.misconception === "string"
+            ? { misconception: row.raw.misconception }
+            : {}),
+        },
+      ];
+    }),
+  };
+}
+
+export async function startAdaptiveMicroLesson({
+  courseId,
+  generated,
+  topicId,
+  userId,
+}: {
+  courseId: string;
+  generated: GeneratedMicroLesson;
+  topicId: string;
+  userId: string;
+}): Promise<void> {
+  if (generated.lesson.topic.id !== topicId)
+    throw new AdaptiveStudyError("The generated lesson topic did not match.");
+  await db.transaction(async (tx) => {
+    await requireTopicAccess(tx, userId, courseId, topicId);
+    const now = new Date();
+    await tx
+      .update(studySessions)
+      .set({ status: "abandoned", endedAt: now })
+      .where(
+        and(
+          eq(studySessions.userId, userId),
+          eq(studySessions.courseId, courseId),
+          eq(studySessions.status, "active"),
+        ),
+      );
+    const [studySession] = await tx
+      .insert(studySessions)
+      .values({ userId, courseId, topicId })
+      .returning({ id: studySessions.id });
+    await tx.insert(microLessons).values({
+      studySessionId: studySession.id,
+      userId,
+      courseId,
+      topicId,
+      learningObjective: generated.lesson.learningObjective,
+      estimatedMinutes: generated.lesson.estimatedMinutes,
+      targetDifficulty: generated.lesson.targetDifficulty.toFixed(4),
+      blocks: generated.lesson.blocks as unknown as Array<
+        Record<string, unknown>
+      >,
+      sourceReferences: generated.sources as unknown as Array<
+        Record<string, unknown>
+      >,
+      model: generated.model,
+      promptVersion: generated.promptVersion,
+      generationRequestId: generated.requestId,
+      generationResponseId: generated.responseId,
+      usage: generated.usage as unknown as Record<string, unknown> | null,
+    });
+  });
+}
+
+export async function answerMicroLessonMcq({
+  blockId,
+  courseId,
+  lessonId,
+  selectedChoiceId,
+  userId,
+}: {
+  blockId: string;
+  courseId: string;
+  lessonId: string;
+  selectedChoiceId: string;
+  userId: string;
+}): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [lesson] = await tx
+      .select({
+        id: microLessons.id,
+        blocks: microLessons.blocks,
+        topicId: microLessons.topicId,
+        studySessionId: microLessons.studySessionId,
+        sources: microLessons.sourceReferences,
+        model: microLessons.model,
+        promptVersion: microLessons.promptVersion,
+      })
+      .from(microLessons)
+      .innerJoin(
+        studySessions,
+        eq(studySessions.id, microLessons.studySessionId),
+      )
+      .innerJoin(
+        courseMemberships,
+        and(
+          eq(courseMemberships.courseId, microLessons.courseId),
+          eq(courseMemberships.userId, userId),
+        ),
+      )
+      .where(
+        and(
+          eq(microLessons.id, lessonId),
+          eq(microLessons.userId, userId),
+          eq(microLessons.courseId, courseId),
+          eq(studySessions.status, "active"),
+        ),
+      )
+      .limit(1);
+    if (!lesson) throw new AdaptiveStudyError("Active micro-lesson not found.");
+    const canonicalBlocks = lesson.blocks as unknown as MicroLessonBlock[];
+    const block = canonicalBlocks.find(
+      (candidate): candidate is MicroLessonMcqBlock =>
+        candidate.id === blockId && candidate.type === "mcq",
+    );
+    if (!block) throw new AdaptiveStudyError("Lesson question not found.");
+    const choice = block.choices.find(
+      (candidate) => candidate.id === selectedChoiceId,
+    );
+    if (!choice) throw new AdaptiveStudyError("Choose a valid answer.");
+    const answeredRows = await tx
+      .select({ blockId: microLessonAnswers.blockId })
+      .from(microLessonAnswers)
+      .where(eq(microLessonAnswers.microLessonId, lessonId));
+    const answeredBlockIds = new Set(answeredRows.map((row) => row.blockId));
+    if (answeredBlockIds.has(blockId))
+      throw new AdaptiveStudyError("This question was already answered.");
+    const nextMcq = canonicalBlocks.find(
+      (candidate): candidate is MicroLessonMcqBlock =>
+        candidate.type === "mcq" && !answeredBlockIds.has(candidate.id),
+    );
+    if (nextMcq?.id !== blockId)
+      throw new AdaptiveStudyError("Answer the current lesson question first.");
+
+    const correct = selectedChoiceId === block.correctChoiceId;
+    const now = new Date();
+    await tx.insert(microLessonAnswers).values({
+      microLessonId: lessonId,
+      userId,
+      blockId,
+      selectedChoiceId,
+      correct,
+      answeredAt: now,
+    });
+    await tx.insert(assessmentEvidence).values({
+      userId,
+      courseId,
+      topicId: lesson.topicId,
+      studySessionId: lesson.studySessionId,
+      evidenceType: "micro_lesson_mcq",
+      score: correct ? "1" : "0",
+      maximumScore: "1",
+      difficulty: block.difficulty.toFixed(4),
+      model: lesson.model,
+      promptVersion: lesson.promptVersion,
+      rawEvidence: {
+        microLessonId: lesson.id,
+        blockId,
+        prompt: block.prompt,
+        choices: block.choices.map(({ id, text }) => ({ id, text })),
+        selectedChoiceId,
+        correctChoiceId: block.correctChoiceId,
+        correct,
+        explanation: block.explanation,
+        feedback: choice.feedback,
+        misconception: choice.misconception,
+        sourceReferences: lesson.sources,
+      },
+      occurredAt: now,
+    });
+    await updateMasteryFromEvidence(tx, userId, courseId, lesson.topicId, now);
+    await tx
+      .insert(userTopicProgress)
+      .values({ userId, topicId: lesson.topicId, lastStudiedAt: now })
+      .onConflictDoUpdate({
+        target: [userTopicProgress.userId, userTopicProgress.topicId],
+        set: { lastStudiedAt: now, updatedAt: now },
+      });
   });
 }
 
@@ -416,7 +791,10 @@ export async function persistGradedAnswer({
         and(
           eq(assessmentEvidence.userId, userId),
           eq(assessmentEvidence.topicId, question.topicId),
-          eq(assessmentEvidence.evidenceType, "graded_practice_answer"),
+          inArray(assessmentEvidence.evidenceType, [
+            "graded_practice_answer",
+            "micro_lesson_mcq",
+          ]),
         ),
       )
       .orderBy(desc(assessmentEvidence.occurredAt))
@@ -549,6 +927,70 @@ export async function completeAdaptiveStudySession(
         );
     }
   });
+}
+
+async function updateMasteryFromEvidence(
+  tx: DatabaseTransaction,
+  userId: string,
+  courseId: string,
+  topicId: string,
+  assessedAt: Date,
+): Promise<void> {
+  const rows = await tx
+    .select({
+      score: assessmentEvidence.score,
+      maximumScore: assessmentEvidence.maximumScore,
+      difficulty: assessmentEvidence.difficulty,
+    })
+    .from(assessmentEvidence)
+    .where(
+      and(
+        eq(assessmentEvidence.userId, userId),
+        eq(assessmentEvidence.topicId, topicId),
+        inArray(assessmentEvidence.evidenceType, [
+          "graded_practice_answer",
+          "micro_lesson_mcq",
+        ]),
+      ),
+    )
+    .orderBy(desc(assessmentEvidence.occurredAt))
+    .limit(8);
+  const validEvidence = rows
+    .filter(
+      (row) =>
+        row.score !== null &&
+        row.maximumScore !== null &&
+        row.difficulty !== null,
+    )
+    .map((row) => ({
+      score: Number(row.score),
+      maximumScore: Number(row.maximumScore),
+      difficulty: Number(row.difficulty),
+    }));
+  const mastery = deriveMasterySignal(validEvidence);
+  await tx
+    .insert(userTopicMastery)
+    .values({
+      userId,
+      courseId,
+      topicId,
+      score: mastery.toFixed(4),
+      evidenceCount: validEvidence.length,
+      formulaVersion: MASTERY_FORMULA_VERSION,
+      lastAssessedAt: assessedAt,
+      updatedAt: assessedAt,
+    })
+    .onConflictDoUpdate({
+      target: [userTopicMastery.userId, userTopicMastery.topicId],
+      set: {
+        courseId,
+        score: mastery.toFixed(4),
+        evidenceCount: validEvidence.length,
+        formulaVersion: MASTERY_FORMULA_VERSION,
+        lastAssessedAt: assessedAt,
+        updatedAt: assessedAt,
+      },
+    });
 }
 
 async function getRecommendation(

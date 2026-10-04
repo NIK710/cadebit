@@ -112,6 +112,7 @@ function ActiveSession({
   view: AdaptiveStudyView;
 }) {
   const session = view.session!;
+  const lesson = session.lesson;
   return (
     <section className="mt-6 space-y-5">
       <div className="border border-black p-5">
@@ -128,61 +129,120 @@ function ActiveSession({
         </p>
       </div>
 
-      {session.latestResult ? (
-        <GradeResult result={session.latestResult} />
-      ) : null}
-      {session.question ? (
-        <form action={action} className="border border-black p-5">
-          <input name="intent" type="hidden" value="answer" />
-          <input name="questionId" type="hidden" value={session.question.id} />
-          <p className="text-xs text-zinc-600">
-            Difficulty {Math.round(session.question.difficulty * 100)}%
+      {lesson ? (
+        <article className="border border-black p-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-600">
+            Learning objective
           </p>
-          <h3 className="mt-2 text-lg font-semibold">
-            {session.question.question}
+          <h3 className="mt-1 text-lg font-semibold">
+            {lesson.learningObjective}
           </h3>
-          <label className="mt-5 block text-sm font-medium" htmlFor="answer">
-            Your answer
-          </label>
-          <textarea
-            className="mt-1 min-h-36 w-full border border-black px-3 py-2"
-            id="answer"
-            maxLength={12_000}
-            name="answer"
-            required
-          />
-          <div className="mt-3">
-            <SubmitButton>Grade answer</SubmitButton>
+          <p className="mt-2 text-sm text-zinc-600">
+            About {lesson.estimatedMinutes} minutes
+          </p>
+          <div className="mt-6 space-y-6">
+            {lesson.blocks.map((block) => {
+              if (block.type === "explanation") {
+                return (
+                  <section key={block.id}>
+                    {block.heading ? (
+                      <h4 className="font-semibold">{block.heading}</h4>
+                    ) : null}
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
+                      {block.body}
+                    </p>
+                  </section>
+                );
+              }
+              if (block.type === "example") {
+                return (
+                  <section
+                    className="border-l-2 border-black pl-4"
+                    key={block.id}
+                  >
+                    <h4 className="font-semibold">
+                      {block.heading ?? "Example"}
+                    </h4>
+                    <p className="mt-2 text-sm leading-6">{block.scenario}</p>
+                    <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm leading-6">
+                      {block.steps.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ol>
+                    <p className="mt-3 text-sm leading-6">
+                      <strong>Takeaway:</strong> {block.takeaway}
+                    </p>
+                  </section>
+                );
+              }
+              return (
+                <section className="border border-black p-4" key={block.id}>
+                  <h4 className="font-semibold">{block.prompt}</h4>
+                  {block.result ? (
+                    <div className="mt-4" aria-live="polite">
+                      <ul className="space-y-2 text-sm">
+                        {block.choices.map((choice) => (
+                          <li
+                            className={
+                              choice.id === block.result?.selectedChoiceId
+                                ? "border border-black bg-zinc-100 p-3"
+                                : "border border-zinc-300 p-3"
+                            }
+                            key={choice.id}
+                          >
+                            {choice.text}
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-4 font-semibold">
+                        {block.result.correct ? "Correct" : "Not quite"}
+                      </p>
+                      <p className="mt-2 text-sm leading-6">
+                        {block.result.selectedFeedback}
+                      </p>
+                      {block.result.misconception ? (
+                        <p className="mt-2 text-sm leading-6">
+                          <strong>Common misconception:</strong>{" "}
+                          {block.result.misconception}
+                        </p>
+                      ) : null}
+                      <p className="mt-2 text-sm leading-6">
+                        {block.result.explanation}
+                      </p>
+                    </div>
+                  ) : (
+                    <form action={action} className="mt-4 space-y-3">
+                      <input name="intent" type="hidden" value="answer" />
+                      <input name="lessonId" type="hidden" value={lesson.id} />
+                      <input name="blockId" type="hidden" value={block.id} />
+                      {block.choices.map((choice) => (
+                        <label
+                          className="flex cursor-pointer gap-3 border border-black p-3 hover:bg-zinc-100"
+                          key={choice.id}
+                        >
+                          <input
+                            name="selectedChoiceId"
+                            required
+                            type="radio"
+                            value={choice.id}
+                          />
+                          <span className="text-sm">{choice.text}</span>
+                        </label>
+                      ))}
+                      <SubmitButton>Submit answer</SubmitButton>
+                    </form>
+                  )}
+                </section>
+              );
+            })}
           </div>
-          <SourceList sources={session.question.sources} />
-        </form>
+          <SourceList sources={lesson.sources} />
+        </article>
       ) : (
-        <form action={action} className="border border-black p-5">
-          <input name="intent" type="hidden" value="generate" />
-          <input name="sessionId" type="hidden" value={session.id} />
-          <h3 className="font-semibold">
-            Generate a grounded practice question
-          </h3>
-          <label
-            className="mt-4 block text-sm font-medium"
-            htmlFor="difficulty"
-          >
-            Difficulty
-          </label>
-          <select
-            className="mt-1 w-full border border-black bg-white px-3 py-2"
-            defaultValue="0.6"
-            id="difficulty"
-            name="difficulty"
-          >
-            <option value="0.35">Foundation</option>
-            <option value="0.6">Standard</option>
-            <option value="0.85">Challenge</option>
-          </select>
-          <div className="mt-3">
-            <SubmitButton>Generate question</SubmitButton>
-          </div>
-        </form>
+        <p className="border border-black p-5">
+          This older session has no micro-lesson. Complete it to start a new
+          lesson.
+        </p>
       )}
 
       <form action={action}>
@@ -191,33 +251,6 @@ function ActiveSession({
         <SubmitButton>Complete session</SubmitButton>
       </form>
     </section>
-  );
-}
-
-function GradeResult({
-  result,
-}: {
-  result: NonNullable<AdaptiveStudyView["session"]>["latestResult"];
-}) {
-  if (!result) return null;
-  return (
-    <article className="border border-black bg-zinc-100 p-5" aria-live="polite">
-      <h3 className="font-semibold">
-        Score: {Math.round(result.score * 100)}% ·{" "}
-        {result.correct ? "Correct" : "Keep working"}
-      </h3>
-      <p className="mt-2 text-sm leading-6">{result.feedback}</p>
-      {result.strengths.length ? (
-        <p className="mt-3 text-sm">
-          <strong>Strengths:</strong> {result.strengths.join("; ")}
-        </p>
-      ) : null}
-      {result.gaps.length ? (
-        <p className="mt-2 text-sm">
-          <strong>Review:</strong> {result.gaps.join("; ")}
-        </p>
-      ) : null}
-    </article>
   );
 }
 

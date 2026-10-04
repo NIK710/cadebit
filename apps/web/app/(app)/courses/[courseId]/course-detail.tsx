@@ -95,12 +95,13 @@ export function CourseDetail({
       </section>
 
       <section className="border border-black p-5">
-        <p className="text-sm text-zinc-600">Adaptive practice</p>
+        <p className="text-sm text-zinc-600">CadeBit Study</p>
         <div className="mt-1 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-semibold">Study the next topic</h2>
             <p className="mt-1 text-sm text-zinc-600">
-              Practice with grounded questions and update your system mastery.
+              Learn through a short, grounded lesson that adapts to your
+              progress.
             </p>
           </div>
           <Link

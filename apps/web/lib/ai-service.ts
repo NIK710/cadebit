@@ -81,6 +81,74 @@ export interface GradedPracticeAnswer {
   usage: TokenUsage | null;
 }
 
+export interface RecentAssessmentSignal {
+  correct: boolean;
+  difficulty: number;
+  misconception?: string;
+}
+
+export interface GenerateMicroLessonRequest {
+  userId: string;
+  courseId: string;
+  topicId: string;
+  topicName: string;
+  topicContext?: string;
+  systemMastery: number | null;
+  recentAssessments: RecentAssessmentSignal[];
+}
+
+export type MicroLessonExplanationBlock = {
+  id: string;
+  type: "explanation";
+  heading: string | null;
+  body: string;
+};
+
+export type MicroLessonExampleBlock = {
+  id: string;
+  type: "example";
+  heading: string | null;
+  scenario: string;
+  steps: string[];
+  takeaway: string;
+};
+
+export type MicroLessonChoice = {
+  id: string;
+  text: string;
+  feedback: string;
+  misconception: string | null;
+};
+
+export type MicroLessonMcqBlock = {
+  id: string;
+  type: "mcq";
+  prompt: string;
+  choices: MicroLessonChoice[];
+  correctChoiceId: string;
+  explanation: string;
+  difficulty: number;
+};
+
+export type MicroLessonBlock =
+  MicroLessonExplanationBlock | MicroLessonExampleBlock | MicroLessonMcqBlock;
+
+export interface GeneratedMicroLesson {
+  requestId: string;
+  responseId: string;
+  lesson: {
+    topic: { id: string; name: string };
+    learningObjective: string;
+    estimatedMinutes: number;
+    targetDifficulty: number;
+    blocks: MicroLessonBlock[];
+  };
+  sources: SourceReference[];
+  model: string;
+  promptVersion: string;
+  usage: TokenUsage | null;
+}
+
 export class AiServiceError extends Error {
   constructor(
     message: string,
@@ -251,6 +319,64 @@ export async function gradePracticeAnswer(
   };
 }
 
+export async function generateMicroLesson(
+  request: GenerateMicroLessonRequest,
+  options: AiServiceClientOptions = {},
+): Promise<GeneratedMicroLesson> {
+  const payload = await postAiService(
+    "/v1/micro-lessons",
+    {
+      user_id: request.userId,
+      course_id: request.courseId,
+      topic_id: request.topicId,
+      topic_name: request.topicName,
+      topic_context: request.topicContext,
+      learner_context: {
+        system_mastery: request.systemMastery,
+        recent_assessments: request.recentAssessments.map((assessment) => ({
+          correct: assessment.correct,
+          difficulty: assessment.difficulty,
+          misconception: assessment.misconception,
+        })),
+      },
+    },
+    options,
+  );
+  if (
+    !isRecord(payload) ||
+    typeof payload.request_id !== "string" ||
+    typeof payload.response_id !== "string" ||
+    !isRecord(payload.lesson) ||
+    !isRecord(payload.lesson.topic) ||
+    typeof payload.lesson.topic.id !== "string" ||
+    typeof payload.lesson.topic.name !== "string" ||
+    typeof payload.lesson.learning_objective !== "string" ||
+    typeof payload.lesson.estimated_minutes !== "number" ||
+    typeof payload.lesson.target_difficulty !== "number" ||
+    !Array.isArray(payload.lesson.blocks) ||
+    !Array.isArray(payload.sources) ||
+    typeof payload.model !== "string" ||
+    typeof payload.prompt_version !== "string"
+  ) {
+    throwInvalidResponse();
+  }
+  return {
+    requestId: payload.request_id,
+    responseId: payload.response_id,
+    lesson: {
+      topic: { id: payload.lesson.topic.id, name: payload.lesson.topic.name },
+      learningObjective: payload.lesson.learning_objective,
+      estimatedMinutes: payload.lesson.estimated_minutes,
+      targetDifficulty: payload.lesson.target_difficulty,
+      blocks: payload.lesson.blocks.map(parseMicroLessonBlock),
+    },
+    sources: payload.sources.map(parseSourceReference),
+    model: payload.model,
+    promptVersion: payload.prompt_version,
+    usage: payload.usage === null ? null : parseTokenUsage(payload.usage),
+  };
+}
+
 async function postAiService(
   path: string,
   body: Record<string, unknown>,
@@ -395,6 +521,71 @@ function parseTokenUsage(value: unknown): TokenUsage {
     inputTokens: value.input_tokens,
     outputTokens: value.output_tokens,
     totalTokens: value.total_tokens,
+  };
+}
+
+function parseMicroLessonBlock(value: unknown): MicroLessonBlock {
+  if (!isRecord(value) || typeof value.id !== "string") throwInvalidResponse();
+  if (value.type === "explanation") {
+    if (typeof value.body !== "string") throwInvalidResponse();
+    return {
+      id: value.id,
+      type: value.type,
+      heading: nullableString(value.heading),
+      body: value.body,
+    };
+  }
+  if (value.type === "example") {
+    if (
+      typeof value.scenario !== "string" ||
+      !isStringArray(value.steps) ||
+      typeof value.takeaway !== "string"
+    )
+      throwInvalidResponse();
+    return {
+      id: value.id,
+      type: value.type,
+      heading: nullableString(value.heading),
+      scenario: value.scenario,
+      steps: value.steps,
+      takeaway: value.takeaway,
+    };
+  }
+  if (
+    value.type !== "mcq" ||
+    typeof value.prompt !== "string" ||
+    !Array.isArray(value.choices) ||
+    value.choices.length !== 4 ||
+    typeof value.correct_choice_id !== "string" ||
+    typeof value.explanation !== "string" ||
+    typeof value.difficulty !== "number"
+  )
+    throwInvalidResponse();
+  const choices = value.choices.map((choice): MicroLessonChoice => {
+    if (
+      !isRecord(choice) ||
+      typeof choice.id !== "string" ||
+      typeof choice.text !== "string" ||
+      typeof choice.feedback !== "string"
+    )
+      throwInvalidResponse();
+    return {
+      id: choice.id,
+      text: choice.text,
+      feedback: choice.feedback,
+      misconception: nullableString(choice.misconception),
+    };
+  });
+  if (!choices.some((choice) => choice.id === value.correct_choice_id))
+    throwInvalidResponse();
+  return {
+    id: value.id,
+    type: value.type,
+    prompt: value.prompt,
+    choices,
+    correctChoiceId: value.correct_choice_id,
+    explanation: value.explanation,
+    difficulty: value.difficulty,
   };
 }
 

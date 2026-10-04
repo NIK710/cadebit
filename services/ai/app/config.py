@@ -69,6 +69,7 @@ class Settings:
     openai_timeout_seconds: float
     openai_max_retries: int
     openai_max_output_tokens: int
+    openai_lesson_max_output_tokens: int
     embedding_model: str
     rag_top_k: int
     rag_min_similarity: float
@@ -117,6 +118,9 @@ def get_settings() -> Settings:
         openai_max_retries=_read_int("OPENAI_MAX_RETRIES", 2, 0, 5),
         openai_max_output_tokens=_read_int(
             "OPENAI_MAX_OUTPUT_TOKENS", 1_200, 64, 10_000
+        ),
+        openai_lesson_max_output_tokens=_read_int(
+            "OPENAI_LESSON_MAX_OUTPUT_TOKENS", 4_000, 512, 10_000
         ),
         embedding_model=os.getenv(
             "OPENAI_EMBEDDING_MODEL", "text-embedding-3-small"

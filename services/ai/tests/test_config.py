@@ -14,6 +14,7 @@ def test_settings_read_environment(monkeypatch):
     monkeypatch.setenv("OPENAI_TIMEOUT_SECONDS", "12.5")
     monkeypatch.setenv("OPENAI_MAX_RETRIES", "1")
     monkeypatch.setenv("OPENAI_MAX_OUTPUT_TOKENS", "900")
+    monkeypatch.setenv("OPENAI_LESSON_MAX_OUTPUT_TOKENS", "3600")
     monkeypatch.setenv("OPENAI_EMBEDDING_MODEL", "embedding-test-model")
     monkeypatch.setenv("RAG_TOP_K", "8")
     monkeypatch.setenv("RAG_MIN_SIMILARITY", "0.25")
@@ -35,6 +36,7 @@ def test_settings_read_environment(monkeypatch):
     assert settings.openai_timeout_seconds == 12.5
     assert settings.openai_max_retries == 1
     assert settings.openai_max_output_tokens == 900
+    assert settings.openai_lesson_max_output_tokens == 3600
     assert settings.embedding_model == "embedding-test-model"
     assert settings.rag_top_k == 8
     assert settings.rag_min_similarity == 0.25

@@ -4,9 +4,16 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from app.contracts import TokenUsage
+from app.contracts import (
+    TokenUsage,
+)
 from app.openai_client import ModelResponse
-from app.practice_client import GeneratedQuestion, GradedAnswer, StructuredModelResponse
+from app.practice_client import (
+    GeneratedMicroLesson,
+    GeneratedQuestion,
+    GradedAnswer,
+    StructuredModelResponse,
+)
 from evaluation.datasets import DatasetError, load_jsonl
 from evaluation.live_runner import run_generation_suite, run_grading_suite
 from evaluation.metrics import calculate_retrieval_metrics, macro_average
@@ -127,6 +134,60 @@ class StubPracticeClient:
             usage=TokenUsage(input_tokens=20, output_tokens=5, total_tokens=25),
         )
 
+    async def generate_lesson(self, *, instructions, input):
+        del instructions, input
+        return StructuredModelResponse(
+            response_id="lesson-1",
+            output=GeneratedMicroLesson.model_validate(
+                {
+                    "topic": {
+                        "id": "30e29626-f22d-44bb-9e8d-c8713e0bf65b",
+                        "name": "Topic",
+                    },
+                    "learning_objective": "Apply independence.",
+                    "estimated_minutes": 5,
+                    "target_difficulty": 0.6,
+                    "blocks": [
+                        {
+                            "id": "teach",
+                            "type": "explanation",
+                            "heading": None,
+                            "body": "Instruction.",
+                            "scenario": None,
+                            "steps": None,
+                            "takeaway": None,
+                            "prompt": None,
+                            "choices": None,
+                            "correct_choice_id": None,
+                            "explanation": None,
+                            "difficulty": None,
+                        },
+                        {
+                            "id": "check",
+                            "type": "mcq",
+                            "heading": None,
+                            "body": None,
+                            "scenario": None,
+                            "steps": None,
+                            "takeaway": None,
+                            "prompt": "Apply it.",
+                            "choices": [
+                                {"id": "a", "text": "A", "feedback": "Correct."},
+                                {"id": "b", "text": "B", "feedback": "Try again."},
+                                {"id": "c", "text": "C", "feedback": "Try again."},
+                                {"id": "d", "text": "D", "feedback": "Try again."},
+                            ],
+                            "correct_choice_id": "a",
+                            "explanation": "A is correct.",
+                            "difficulty": 0.6,
+                        },
+                    ],
+                }
+            ),
+            model="subject-model",
+            usage=TokenUsage(input_tokens=12, output_tokens=8, total_tokens=20),
+        )
+
 
 class StubJudge:
     async def judge_generation(self, **arguments):
@@ -138,6 +199,13 @@ class StubJudge:
             output=SimpleNamespace(
                 grounding_passed=True,
                 quality_score=0.9,
+                lesson_coherence_score=0.9,
+                instructional_usefulness_score=0.85,
+                question_relevance_score=0.9,
+                application_reasoning_score=0.8,
+                distractor_quality_score=0.75,
+                grading_correctness_score=1.0,
+                difficulty_appropriateness_score=0.8,
                 model_dump=lambda: {
                     "grounding_score": 1,
                     "quality_score": 0.9,
@@ -145,6 +213,13 @@ class StubJudge:
                     "quality_passed": True,
                     "unsupported_claims": [],
                     "rationale": "Supported.",
+                    "lesson_coherence_score": 0.9,
+                    "instructional_usefulness_score": 0.85,
+                    "question_relevance_score": 0.9,
+                    "application_reasoning_score": 0.8,
+                    "distractor_quality_score": 0.75,
+                    "grading_correctness_score": 1.0,
+                    "difficulty_appropriateness_score": 0.8,
                 },
             ),
         )
@@ -168,6 +243,14 @@ def test_live_generation_stores_per_case_outputs_and_usage():
             sources=[{"material_title": "Notes", "content": "P(A and B)=P(A)P(B)."}],
             expected_facts=["Independence equation"],
         ),
+        GenerationCase(
+            id="lesson",
+            dataset_version="v1",
+            kind=GenerationKind.MICRO_LESSON,
+            request="Teach and assess independence.",
+            sources=[{"material_title": "Notes", "content": "Independence."}],
+            expected_facts=["Instruction and assessment"],
+        ),
     ]
     outputs, aggregates, tokens = asyncio.run(
         run_generation_suite(
@@ -178,10 +261,20 @@ def test_live_generation_stores_per_case_outputs_and_usage():
         )
     )
 
-    assert len(outputs) == 2
+    assert len(outputs) == 3
     assert outputs[1]["candidate_output"].startswith("Question:")
-    assert aggregates == {"grounding_pass_rate": 1, "question_quality_mean": 0.9}
-    assert tokens.total_tokens == 95
+    assert aggregates == {
+        "grounding_pass_rate": 1,
+        "question_quality_mean": 0.9,
+        "lesson_coherence_mean": 0.9,
+        "instructional_usefulness_mean": 0.85,
+        "lesson_question_relevance_mean": 0.9,
+        "application_reasoning_mean": 0.8,
+        "distractor_quality_mean": 0.75,
+        "mcq_grading_correctness_mean": 1.0,
+        "difficulty_appropriateness_mean": 0.8,
+    }
+    assert tokens.total_tokens == 145
 
 
 def test_grading_consistency_repeats_and_measures_score_spread():

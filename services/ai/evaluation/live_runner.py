@@ -3,10 +3,12 @@ from uuid import UUID, uuid5
 from app.contracts import (
     GenerateRequest,
     GenerationTask,
+    MicroLessonRequest,
     PracticeGradeRequest,
     PracticeQuestionRequest,
     SourceReference,
 )
+from app.lesson import MicroLessonOrchestrator
 from app.openai_client import GenerationClient
 from app.orchestration import (
     EmptyGroundingProvider,
@@ -72,6 +74,15 @@ async def run_generation_suite(
     outputs: list[dict] = []
     grounding_passes = 0
     question_quality_scores: list[float] = []
+    lesson_scores: dict[str, list[float]] = {
+        "lesson_coherence_mean": [],
+        "instructional_usefulness_mean": [],
+        "lesson_question_relevance_mean": [],
+        "application_reasoning_mean": [],
+        "distractor_quality_mean": [],
+        "mcq_grading_correctness_mean": [],
+        "difficulty_appropriateness_mean": [],
+    }
     tokens = TokenCounter()
     for case in cases:
         grounding = StaticGroundingProvider(case)
@@ -91,7 +102,7 @@ async def run_generation_suite(
             subject_usage = response.usage
             subject_model = response.model
             subject_response_id = response.response_id
-        else:
+        elif case.kind is GenerationKind.PRACTICE_QUESTION:
             response = await PracticeOrchestrator(
                 practice_client, grounding
             ).generate_question(
@@ -111,6 +122,22 @@ async def run_generation_suite(
             subject_usage = response.usage
             subject_model = response.model
             subject_response_id = response.response_id
+        else:
+            response = await MicroLessonOrchestrator(
+                practice_client, grounding
+            ).generate(
+                MicroLessonRequest(
+                    user_id="evaluation-user",
+                    course_id=uuid5(EVALUATION_NAMESPACE, f"{case.id}:course"),
+                    topic_id=uuid5(EVALUATION_NAMESPACE, f"{case.id}:topic"),
+                    topic_name="Evaluation topic",
+                ),
+                f"eval-{case.id}",
+            )
+            candidate = response.lesson.model_dump_json(indent=2)
+            subject_usage = response.usage
+            subject_model = response.model
+            subject_response_id = response.response_id
         tokens.add(subject_usage)
         judgment = await judge_client.judge_generation(
             kind=case.kind,
@@ -124,6 +151,28 @@ async def run_generation_suite(
         grounding_passes += int(judgment.output.grounding_passed)
         if case.kind is GenerationKind.PRACTICE_QUESTION:
             question_quality_scores.append(judgment.output.quality_score)
+        if case.kind is GenerationKind.MICRO_LESSON:
+            lesson_scores["lesson_coherence_mean"].append(
+                judgment.output.lesson_coherence_score
+            )
+            lesson_scores["instructional_usefulness_mean"].append(
+                judgment.output.instructional_usefulness_score
+            )
+            lesson_scores["lesson_question_relevance_mean"].append(
+                judgment.output.question_relevance_score
+            )
+            lesson_scores["application_reasoning_mean"].append(
+                judgment.output.application_reasoning_score
+            )
+            lesson_scores["distractor_quality_mean"].append(
+                judgment.output.distractor_quality_score
+            )
+            lesson_scores["mcq_grading_correctness_mean"].append(
+                judgment.output.grading_correctness_score
+            )
+            lesson_scores["difficulty_appropriateness_mean"].append(
+                judgment.output.difficulty_appropriateness_score
+            )
         outputs.append(
             {
                 "id": case.id,
@@ -150,6 +199,9 @@ async def run_generation_suite(
             sum(question_quality_scores) / len(question_quality_scores), 6
         ),
     }
+    for metric, scores in lesson_scores.items():
+        if scores:
+            aggregates[metric] = round(sum(scores) / len(scores), 6)
     return outputs, aggregates, tokens
 
 

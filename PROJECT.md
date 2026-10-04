@@ -344,6 +344,64 @@ question-generation step. Difficulty is an internal adaptive concern. Lesson
 content uses a typed block contract rather than one large Markdown string, and
 only graded interactions produce system-mastery evidence.
 
+#### Phase 9D micro-lesson design
+
+`POST /v1/micro-lessons` generates one grounded lesson for an authorized user,
+course, and selected topic scope. The selected outline node bounds retrieval,
+but the generated `learning_objective` must be narrow enough for one short,
+coherent lesson rather than attempting to cover a broad topic comprehensively.
+Repeated lessons gradually cover the wider hierarchy.
+
+The internal Pydantic contract and its TypeScript mirror use a discriminated
+`blocks` array:
+
+-   `MicroLesson`: topic reference, narrow `learning_objective`,
+    `estimated_minutes`, internal `target_difficulty`, and `blocks`
+-   `explanation`: stable block ID, optional heading, and instructional body
+-   `example`: stable block ID, optional heading, scenario, reasoning steps,
+    and takeaway
+-   `mcq`: stable block ID, prompt, exactly four choices, private correct-choice
+    ID, private lesson explanation, internal difficulty, and choices whose
+    private feedback may include a misconception
+
+A valid lesson contains at least one instructional block (`explanation` or
+`example`) and at least one MCQ. Examples are optional, block order remains
+instructionally flexible, and no fixed explanation/example/question sequence
+is required. Diagrams, interactive equations, simulations, and dynamically
+inserted remedial blocks remain future extensions rather than Phase 9D block
+types.
+
+Generation is one-shot in V1. A named, configurable heuristic combines system
+mastery and recent graded performance into a bounded target difficulty; it is
+not a learned or calibrated model. Choice-specific feedback is generated with
+the lesson so an incorrect answer can receive targeted correction without a
+new model call. Deterministic tests protect the heuristic and its bounds.
+
+The browser receives a safe progressive projection of the canonical lesson.
+Blocks render inline as one continuous lesson, but projection stops at the
+first unanswered MCQ. Before submission the client never receives its correct
+choice ID, explanation, misconception metadata, choice feedback, or any later
+blocks. The server grades the selected choice against the canonical lesson,
+then reveals correctness, the lesson explanation, only the selected choice's
+feedback/misconception when applicable, and the following blocks inline up to
+the next unanswered MCQ.
+
+The database stores generated content once in `micro_lessons.blocks` JSONB,
+along with its objective, topic/course/user/session ownership, difficulty,
+sources, and generation metadata. `micro_lesson_answers` records student
+behavior only: lesson, user, block ID, selected choice ID, correctness, and
+answer time. It does not duplicate generated feedback. Each deterministically
+graded MCQ creates raw assessment evidence and can update system mastery;
+viewing instructional blocks does neither. Existing practice-question records
+and evaluation history remain intact.
+
+The initial API/database impact is additive: a new micro-lesson endpoint and
+the two tables above. Existing study-session ownership, shared-course
+authorization, topic isolation, retrieval/source metadata, and the separation
+between system mastery and self-confidence continue to apply. Phase 9D uses
+the existing unit/integration infrastructure and explicit browser verification;
+general end-to-end browser infrastructure remains Product / Reliability work.
+
 Course-specific grounded Q&A remains available as the secondary **CadeBit AI**
 chat interface. It infers intent and retrieval scope from natural language,
 supports follow-up questions, and surfaces source references. Ordinary chat
