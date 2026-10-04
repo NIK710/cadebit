@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   useActionState,
   useEffect,
-  useId,
   useRef,
   useState,
   type ReactNode,
@@ -14,21 +13,17 @@ import { useFormStatus } from "react-dom";
 import {
   formatCourseDate,
   type CourseDetail as CourseDetailData,
-  type CourseTopic,
 } from "@/lib/courses";
 import type { CourseMaterialSummary } from "@/lib/db/material-management";
 
 import {
-  addTopicAction,
   deleteCourseMaterialAction,
-  deleteTopicAction,
-  renameTopicAction,
-  updateCompletionAction,
-  updateConfidenceAction,
   updateTargetDateAction,
   uploadCourseMaterialAction,
   type CourseActionState,
 } from "../actions";
+import { CourseOutline } from "./course-outline";
+import { Modal } from "./modal";
 
 export function CourseDetail({
   course,
@@ -117,40 +112,7 @@ export function CourseDetail({
         </div>
       </section>
 
-      <section>
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-sm text-zinc-600">Course structure</p>
-            <h2 className="mt-1 text-2xl font-semibold">
-              Topics and subtopics
-            </h2>
-          </div>
-          <span className="text-xs text-zinc-600">
-            {isAdmin
-              ? "Admins edit the shared structure."
-              : "Only admins can edit the shared structure."}
-          </span>
-        </div>
-
-        {isAdmin ? <AddTopicForm course={course} /> : null}
-
-        {course.topics.length === 0 ? (
-          <p className="mt-4 border border-black p-5 text-sm text-zinc-600">
-            No topics have been added yet.
-          </p>
-        ) : (
-          <div className="mt-4 space-y-4">
-            {course.topics.map((topic) => (
-              <TopicCard
-                courseId={course.id}
-                isAdmin={isAdmin}
-                key={topic.id}
-                topic={topic}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+      <CourseOutline course={course} />
 
       {targetDateOpen ? (
         <TargetDateModal
@@ -425,73 +387,6 @@ function MaterialRow({
   );
 }
 
-function Modal({
-  children,
-  onClose,
-  title,
-  wide = false,
-}: {
-  children: ReactNode;
-  onClose: () => void;
-  title: string;
-  wide?: boolean;
-}) {
-  const titleId = useId();
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const closeRef = useRef<HTMLButtonElement>(null);
-  const onCloseRef = useRef(onClose);
-
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
-
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const initialFocus =
-      dialogRef.current?.querySelector<HTMLElement>(
-        "[data-modal-initial-focus]",
-      ) ?? closeRef.current;
-    initialFocus?.focus();
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onCloseRef.current();
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, []);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div
-        aria-labelledby={titleId}
-        aria-modal="true"
-        className={`max-h-[90vh] w-full overflow-y-auto border border-black bg-white p-5 ${wide ? "max-w-3xl" : "max-w-md"}`}
-        ref={dialogRef}
-        role="dialog"
-      >
-        <div className="flex items-start justify-between gap-4 border-b border-zinc-300 pb-3">
-          <h2 className="text-xl font-semibold" id={titleId}>
-            {title}
-          </h2>
-          <button
-            className="border border-black px-2 py-1 text-xs hover:bg-zinc-100"
-            onClick={onClose}
-            ref={closeRef}
-            type="button"
-          >
-            Close
-          </button>
-        </div>
-        <div className="pt-4">{children}</div>
-      </div>
-    </div>
-  );
-}
-
 function PencilIcon() {
   return (
     <svg
@@ -536,232 +431,6 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function AddTopicForm({ course }: { course: CourseDetailData }) {
-  const [state, action] = useActionState(
-    addTopicAction.bind(null, course.id),
-    {},
-  );
-  return (
-    <form action={action} className="mt-4 border border-black p-4">
-      <p className="text-sm font-medium">Add to course structure</p>
-      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-        <input
-          className="border border-black px-3 py-2"
-          maxLength={160}
-          minLength={2}
-          name="name"
-          placeholder="Topic name"
-          required
-        />
-        <select
-          className="border border-black bg-white px-3 py-2"
-          name="parentId"
-        >
-          <option value="">Top-level topic</option>
-          {course.topics.map((topic) => (
-            <option key={topic.id} value={topic.id}>
-              Subtopic of {topic.name}
-            </option>
-          ))}
-        </select>
-        <SubmitButton>Add</SubmitButton>
-      </div>
-      <ActionMessage state={state} />
-    </form>
-  );
-}
-
-function TopicCard({
-  courseId,
-  isAdmin,
-  topic,
-}: {
-  courseId: string;
-  isAdmin: boolean;
-  topic: CourseTopic;
-}) {
-  return (
-    <article className="border border-black">
-      <TopicRow courseId={courseId} isAdmin={isAdmin} topic={topic} />
-      {topic.subtopics.length ? (
-        <div className="divide-y divide-zinc-300 border-t border-black pl-5">
-          {topic.subtopics.map((subtopic) => (
-            <TopicRow
-              courseId={courseId}
-              isAdmin={isAdmin}
-              key={subtopic.id}
-              topic={subtopic}
-            />
-          ))}
-        </div>
-      ) : null}
-    </article>
-  );
-}
-
-function TopicRow({
-  courseId,
-  isAdmin,
-  topic,
-}: {
-  courseId: string;
-  isAdmin: boolean;
-  topic: CourseTopic;
-}) {
-  return (
-    <div className="space-y-3 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="font-semibold">{topic.name}</h3>
-          <p className="text-xs text-zinc-600">
-            {topic.completed ? "Completed" : "Not completed"}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <CompletionForm courseId={courseId} topic={topic} />
-          <ConfidenceForm courseId={courseId} topic={topic} />
-        </div>
-      </div>
-      {isAdmin ? <TopicAdminForms courseId={courseId} topic={topic} /> : null}
-    </div>
-  );
-}
-
-function CompletionForm({
-  courseId,
-  topic,
-}: {
-  courseId: string;
-  topic: CourseTopic;
-}) {
-  const [state, action] = useActionState(
-    updateCompletionAction.bind(null, courseId),
-    {},
-  );
-  return (
-    <form action={action}>
-      <input name="topicId" type="hidden" value={topic.id} />
-      <input name="completed" type="hidden" value={String(!topic.completed)} />
-      <SubmitButton secondary>
-        {topic.completed ? "Mark incomplete" : "Mark complete"}
-      </SubmitButton>
-      <ActionMessage state={state} />
-    </form>
-  );
-}
-
-function ConfidenceForm({
-  courseId,
-  topic,
-}: {
-  courseId: string;
-  topic: CourseTopic;
-}) {
-  const formRef = useRef<HTMLFormElement>(null);
-  const [rating, setRating] = useState(topic.confidence ?? 3);
-  const [hasRating, setHasRating] = useState(topic.confidence !== null);
-  const [state, action, pending] = useActionState(
-    updateConfidenceAction.bind(null, courseId),
-    {},
-  );
-
-  function saveRating() {
-    formRef.current?.requestSubmit();
-  }
-
-  return (
-    <form action={action} className="min-w-56" ref={formRef}>
-      <input name="topicId" type="hidden" value={topic.id} />
-      <div className="flex items-center justify-between gap-3 text-xs">
-        <label className="font-medium" htmlFor={`confidence-${topic.id}`}>
-          Confidence
-        </label>
-        <output htmlFor={`confidence-${topic.id}`}>
-          {hasRating ? `${rating} / 5` : "Not rated"}
-        </output>
-      </div>
-      <input
-        aria-valuetext={`${rating} out of 5`}
-        className="mt-1 block w-full accent-black"
-        id={`confidence-${topic.id}`}
-        max={5}
-        min={1}
-        name="rating"
-        onChange={(event) => {
-          setRating(Number(event.currentTarget.value));
-          setHasRating(true);
-        }}
-        onKeyUp={(event) => {
-          if (
-            [
-              "ArrowLeft",
-              "ArrowRight",
-              "ArrowUp",
-              "ArrowDown",
-              "Home",
-              "End",
-            ].includes(event.key)
-          ) {
-            saveRating();
-          }
-        }}
-        onPointerUp={saveRating}
-        step={1}
-        type="range"
-        value={rating}
-      />
-      <div className="flex justify-between text-[10px] text-zinc-600">
-        <span>Low</span>
-        <span>High</span>
-      </div>
-      <p className="mt-1 text-xs" role={state.error ? "alert" : "status"}>
-        {pending ? "Saving…" : (state.error ?? state.success)}
-      </p>
-    </form>
-  );
-}
-
-function TopicAdminForms({
-  courseId,
-  topic,
-}: {
-  courseId: string;
-  topic: CourseTopic;
-}) {
-  const [renameState, renameAction] = useActionState(
-    renameTopicAction.bind(null, courseId),
-    {},
-  );
-  const [deleteState, deleteAction] = useActionState(
-    deleteTopicAction.bind(null, courseId),
-    {},
-  );
-  return (
-    <div className="border-t border-zinc-300 pt-3">
-      <div className="flex flex-wrap gap-2">
-        <form action={renameAction} className="flex flex-1">
-          <input name="topicId" type="hidden" value={topic.id} />
-          <input
-            aria-label={`Rename ${topic.name}`}
-            className="min-w-36 flex-1 border border-black px-2 py-1.5 text-sm"
-            defaultValue={topic.name}
-            maxLength={160}
-            minLength={2}
-            name="name"
-            required
-          />
-          <SubmitButton secondary>Rename</SubmitButton>
-        </form>
-        <form action={deleteAction}>
-          <input name="topicId" type="hidden" value={topic.id} />
-          <SubmitButton secondary>Delete</SubmitButton>
-        </form>
-      </div>
-      <ActionMessage state={renameState.error ? renameState : deleteState} />
-    </div>
-  );
 }
 
 function SubmitButton({

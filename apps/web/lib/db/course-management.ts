@@ -5,6 +5,10 @@ import { randomInt } from "node:crypto";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import {
+  validateCourseOutline,
+  type CourseOutlineNode,
+} from "../course-outline";
+import {
   calculateProgress,
   normalizeJoinCode,
   parseTopicOutline,
@@ -24,6 +28,7 @@ import {
 } from "./schema";
 
 const JOIN_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export class CourseManagementError extends Error {
   constructor(message: string) {
@@ -328,18 +333,18 @@ export async function addCourseTopic({
     await requireAdmin(tx, userId, courseId);
 
     if (parentId) {
-      const [parent] = await tx
-        .select({ id: topics.id })
+      const topicRows = await tx
+        .select({ id: topics.id, parentId: topics.parentId })
         .from(topics)
-        .where(
-          and(
-            eq(topics.id, parentId),
-            eq(topics.courseId, courseId),
-            isNull(topics.parentId),
-          ),
-        )
-        .limit(1);
+        .where(eq(topics.courseId, courseId));
+      const topicById = new Map(topicRows.map((topic) => [topic.id, topic]));
+      const parent = topicById.get(parentId);
       if (!parent) throw new CourseManagementError("Parent topic not found.");
+      if (topicDepth(parent, topicById) >= 3) {
+        throw new CourseManagementError(
+          "Course outlines support at most three levels.",
+        );
+      }
     }
 
     const [positionRow] = await tx
@@ -380,6 +385,124 @@ export async function renameCourseTopic({
       .where(and(eq(topics.id, topicId), eq(topics.courseId, courseId)))
       .returning({ id: topics.id });
     if (!updated.length) throw new CourseManagementError("Topic not found.");
+  });
+}
+
+export async function updateCourseTopicContext({
+  context,
+  courseId,
+  topicId,
+  userId,
+}: {
+  context: string;
+  courseId: string;
+  topicId: string;
+  userId: string;
+}): Promise<void> {
+  await db.transaction(async (tx) => {
+    await requireAdmin(tx, userId, courseId);
+    const updated = await tx
+      .update(topics)
+      .set({ description: context, updatedAt: new Date() })
+      .where(and(eq(topics.id, topicId), eq(topics.courseId, courseId)))
+      .returning({ id: topics.id });
+    if (!updated.length) throw new CourseManagementError("Topic not found.");
+  });
+}
+
+export async function reorderCourseTopics({
+  courseId,
+  orderedTopicIds,
+  userId,
+}: {
+  courseId: string;
+  orderedTopicIds: string[];
+  userId: string;
+}): Promise<void> {
+  if (orderedTopicIds.length === 0) {
+    throw new CourseManagementError("At least one topic is required.");
+  }
+
+  await db.transaction(async (tx) => {
+    await requireAdmin(tx, userId, courseId);
+    const selected = await tx
+      .select({ id: topics.id, parentId: topics.parentId })
+      .from(topics)
+      .where(
+        and(eq(topics.courseId, courseId), inArray(topics.id, orderedTopicIds)),
+      );
+    if (selected.length !== orderedTopicIds.length) {
+      throw new CourseManagementError("The topic order is invalid.");
+    }
+
+    const parentId = selected[0].parentId;
+    if (selected.some((topic) => topic.parentId !== parentId)) {
+      throw new CourseManagementError(
+        "Topics can only be reordered with their siblings.",
+      );
+    }
+
+    const siblings = await tx
+      .select({ id: topics.id })
+      .from(topics)
+      .where(
+        and(
+          eq(topics.courseId, courseId),
+          parentId ? eq(topics.parentId, parentId) : isNull(topics.parentId),
+        ),
+      );
+    if (
+      siblings.length !== orderedTopicIds.length ||
+      siblings.some((topic) => !orderedTopicIds.includes(topic.id))
+    ) {
+      throw new CourseManagementError(
+        "The complete sibling order must be provided.",
+      );
+    }
+
+    const now = new Date();
+    for (const [index, topicId] of orderedTopicIds.entries()) {
+      await tx
+        .update(topics)
+        .set({ position: -1_000_000 - index, updatedAt: now })
+        .where(and(eq(topics.id, topicId), eq(topics.courseId, courseId)));
+    }
+    for (const [position, topicId] of orderedTopicIds.entries()) {
+      await tx
+        .update(topics)
+        .set({ position, updatedAt: now })
+        .where(and(eq(topics.id, topicId), eq(topics.courseId, courseId)));
+    }
+  });
+}
+
+export async function replaceCourseOutline({
+  courseId,
+  outline,
+  userId,
+}: {
+  courseId: string;
+  outline: CourseOutlineNode[];
+  userId: string;
+}): Promise<void> {
+  validateCourseOutline(outline);
+  await db.transaction(async (tx) => {
+    await requireAdmin(tx, userId, courseId);
+    const existing = await tx
+      .select({
+        id: topics.id,
+        parentId: topics.parentId,
+        name: topics.name,
+      })
+      .from(topics)
+      .where(eq(topics.courseId, courseId));
+    for (const [index, topic] of existing.entries()) {
+      await tx
+        .update(topics)
+        .set({ position: -1_000_000 - index })
+        .where(eq(topics.id, topic.id));
+    }
+    await reconcileOutlineNodes(tx, courseId, null, outline, existing);
   });
 }
 
@@ -535,7 +658,7 @@ async function requireMemberAndTopic(
 }
 
 async function requireAdmin(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  tx: DatabaseTransaction,
   userId: string,
   courseId: string,
 ): Promise<void> {
@@ -551,6 +674,80 @@ async function requireAdmin(
     .limit(1);
   if (membership?.role !== "admin") {
     throw new CourseManagementError("Only course admins can edit topics.");
+  }
+}
+
+function topicDepth(
+  topic: { id: string; parentId: string | null },
+  topicById: Map<string, { id: string; parentId: string | null }>,
+): number {
+  let depth = 1;
+  let cursor = topic;
+  const visited = new Set([topic.id]);
+  while (cursor.parentId) {
+    if (visited.has(cursor.parentId)) {
+      throw new CourseManagementError("The course outline contains a cycle.");
+    }
+    visited.add(cursor.parentId);
+    const parent = topicById.get(cursor.parentId);
+    if (!parent) {
+      throw new CourseManagementError("The course outline is invalid.");
+    }
+    cursor = parent;
+    depth += 1;
+  }
+  return depth;
+}
+
+async function reconcileOutlineNodes(
+  tx: DatabaseTransaction,
+  courseId: string,
+  parentId: string | null,
+  outline: CourseOutlineNode[],
+  existing: Array<{ id: string; parentId: string | null; name: string }>,
+): Promise<void> {
+  const existingSiblings = existing.filter(
+    (topic) => topic.parentId === parentId,
+  );
+  const retained = new Set<string>();
+  for (const [position, item] of outline.entries()) {
+    const matching = existingSiblings.find(
+      (topic) =>
+        !retained.has(topic.id) &&
+        topic.name.toLocaleLowerCase() === item.name.toLocaleLowerCase(),
+    );
+    let topicId: string;
+    if (matching) {
+      retained.add(matching.id);
+      topicId = matching.id;
+      await tx
+        .update(topics)
+        .set({ name: item.name, position, updatedAt: new Date() })
+        .where(eq(topics.id, matching.id));
+    } else {
+      const [inserted] = await tx
+        .insert(topics)
+        .values({
+          courseId,
+          parentId,
+          name: item.name,
+          position,
+        })
+        .returning({ id: topics.id });
+      topicId = inserted.id;
+    }
+    await reconcileOutlineNodes(tx, courseId, topicId, item.children, existing);
+  }
+
+  const removedIds = existingSiblings
+    .filter((topic) => !retained.has(topic.id))
+    .map((topic) => topic.id);
+  if (removedIds.length > 0) {
+    await tx
+      .delete(topics)
+      .where(
+        and(eq(topics.courseId, courseId), inArray(topics.id, removedIds)),
+      );
   }
 }
 

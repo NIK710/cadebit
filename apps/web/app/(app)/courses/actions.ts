@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { isValidJoinCode, type CourseTopic } from "@/lib/courses";
+import { CourseOutlineError, parseCourseOutline } from "@/lib/course-outline";
 import {
   AiServiceError,
   generateCourseContent,
@@ -17,8 +18,11 @@ import {
   deleteCourseTopic,
   joinSharedCourse,
   renameCourseTopic,
+  reorderCourseTopics,
+  replaceCourseOutline,
   setTopicCompletion,
   setTopicConfidence,
+  updateCourseTopicContext,
   updateTargetDate,
   getCourseForUser,
 } from "@/lib/db/course-management";
@@ -150,6 +154,92 @@ export async function renameTopicAction(
     revalidateCourse(courseId);
     return { success: "Topic renamed." };
   } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function updateTopicContextAction(
+  courseId: string,
+  _state: CourseActionState,
+  formData: FormData,
+): Promise<CourseActionState> {
+  const session = await requireSession();
+  const topicId = textValue(formData, "topicId");
+  const context = textValue(formData, "context");
+  if (!isUuid(courseId) || !isUuid(topicId)) return { error: "Invalid topic." };
+  if (context.length > 4_000) {
+    return { error: "Topic context must contain at most 4,000 characters." };
+  }
+
+  try {
+    await updateCourseTopicContext({
+      context,
+      courseId,
+      topicId,
+      userId: session.userId,
+    });
+    revalidateCourse(courseId);
+    return { success: "Topic context updated." };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function reorderTopicsAction(
+  courseId: string,
+  orderedTopicIds: string[],
+): Promise<CourseActionState> {
+  const session = await requireSession();
+  if (
+    !isUuid(courseId) ||
+    orderedTopicIds.length === 0 ||
+    orderedTopicIds.length > 1_000 ||
+    new Set(orderedTopicIds).size !== orderedTopicIds.length ||
+    orderedTopicIds.some((topicId) => !isUuid(topicId))
+  ) {
+    return { error: "Invalid topic order." };
+  }
+
+  try {
+    await reorderCourseTopics({
+      courseId,
+      orderedTopicIds,
+      userId: session.userId,
+    });
+    revalidateCourse(courseId);
+    return { success: "Topic order updated." };
+  } catch (error) {
+    return actionError(error);
+  }
+}
+
+export async function replaceCourseOutlineAction(
+  courseId: string,
+  _state: CourseActionState,
+  formData: FormData,
+): Promise<CourseActionState> {
+  const session = await requireSession();
+  const outlineText = rawTextValue(formData, "outline");
+  const confirmed = textValue(formData, "confirmReplacement") === "confirmed";
+  if (!isUuid(courseId)) return { error: "Invalid course." };
+  if (outlineText.length > 50_000) {
+    return { error: "Course outline must contain at most 50,000 characters." };
+  }
+  if (!confirmed) {
+    return { error: "Confirm that you want to replace the current outline." };
+  }
+
+  try {
+    const outline = parseCourseOutline(outlineText);
+    await replaceCourseOutline({
+      courseId,
+      outline,
+      userId: session.userId,
+    });
+    revalidateCourse(courseId);
+    return { success: "Course outline replaced." };
+  } catch (error) {
+    if (error instanceof CourseOutlineError) return { error: error.message };
     return actionError(error);
   }
 }
@@ -356,6 +446,11 @@ export async function generateCourseAiAction(
 function textValue(formData: FormData, key: string): string {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
+}
+
+function rawTextValue(formData: FormData, key: string): string {
+  const value = formData.get(key);
+  return typeof value === "string" ? value : "";
 }
 
 function optionalDate(

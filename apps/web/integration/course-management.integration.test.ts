@@ -4,11 +4,15 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   addCourseTopic,
   createCourseForUser,
+  deleteCourseTopic,
   getCourseForUser,
   joinSharedCourse,
   recordStudyActivity,
+  reorderCourseTopics,
+  replaceCourseOutline,
   setTopicCompletion,
   setTopicConfidence,
+  updateCourseTopicContext,
   updateTargetDate,
 } from "../lib/db/course-management";
 import { db, pool } from "../lib/db";
@@ -123,5 +127,147 @@ describe("database-backed course management", () => {
     const ownerCourse = await getCourseForUser(adminId, courseId);
     expect(ownerCourse?.joinCode).toBeNull();
     expect(await getCourseForUser(memberId, courseId)).toBeNull();
+  });
+
+  it("persists a three-level ordered outline and protects every mutation", async () => {
+    const courseId = await createCourseForUser(adminId, {
+      name: "Outline Integration Course",
+      description: "Three-level hierarchy coverage.",
+      type: "independent",
+      targetDate: null,
+      topicOutline: "First topic\nSecond topic",
+    });
+    let course = await getCourseForUser(adminId, courseId);
+    const firstTopic = course!.topics[0];
+    const secondTopic = course!.topics[1];
+
+    await reorderCourseTopics({
+      courseId,
+      orderedTopicIds: [secondTopic.id, firstTopic.id],
+      userId: adminId,
+    });
+    await addCourseTopic({
+      courseId,
+      name: "First child",
+      parentId: firstTopic.id,
+      userId: adminId,
+    });
+    course = await getCourseForUser(adminId, courseId);
+    const persistedFirst = course!.topics.find(
+      (topic) => topic.id === firstTopic.id,
+    )!;
+    const firstChild = persistedFirst.subtopics[0];
+    await addCourseTopic({
+      courseId,
+      name: "First grandchild",
+      parentId: firstChild.id,
+      userId: adminId,
+    });
+    await updateCourseTopicContext({
+      context: "Grounding context for the child topic.",
+      courseId,
+      topicId: firstChild.id,
+      userId: adminId,
+    });
+
+    course = await getCourseForUser(adminId, courseId);
+    expect(course!.topics.map((topic) => topic.name)).toEqual([
+      "Second topic",
+      "First topic",
+    ]);
+    const updatedFirst = course!.topics[1];
+    expect(updatedFirst.subtopics[0].description).toBe(
+      "Grounding context for the child topic.",
+    );
+    expect(updatedFirst.subtopics[0].subtopics[0].name).toBe(
+      "First grandchild",
+    );
+
+    await expect(
+      addCourseTopic({
+        courseId,
+        name: "Unsupported fourth level",
+        parentId: updatedFirst.subtopics[0].subtopics[0].id,
+        userId: adminId,
+      }),
+    ).rejects.toThrow("at most three levels");
+    await expect(
+      reorderCourseTopics({
+        courseId,
+        orderedTopicIds: [firstTopic.id],
+        userId: adminId,
+      }),
+    ).rejects.toThrow("complete sibling order");
+    await expect(
+      updateCourseTopicContext({
+        context: "Forbidden",
+        courseId,
+        topicId: firstChild.id,
+        userId: memberId,
+      }),
+    ).rejects.toThrow("Only course admins can edit topics.");
+
+    await addCourseTopic({
+      courseId,
+      name: "Disposable topic",
+      parentId: null,
+      userId: adminId,
+    });
+    course = await getCourseForUser(adminId, courseId);
+    const disposable = course!.topics.find(
+      (topic) => topic.name === "Disposable topic",
+    )!;
+    await addCourseTopic({
+      courseId,
+      name: "Disposable child",
+      parentId: disposable.id,
+      userId: adminId,
+    });
+    await deleteCourseTopic({
+      courseId,
+      topicId: disposable.id,
+      userId: adminId,
+    });
+    course = await getCourseForUser(adminId, courseId);
+    expect(
+      course!.topics.some((topic) => topic.name === "Disposable topic"),
+    ).toBe(false);
+
+    const replacement = [
+      {
+        name: "First topic",
+        children: [
+          {
+            name: "First child",
+            children: [{ name: "First grandchild", children: [] }],
+          },
+        ],
+      },
+      { name: "Chapter 2", children: [] },
+    ];
+    await expect(
+      replaceCourseOutline({
+        courseId,
+        outline: replacement,
+        userId: memberId,
+      }),
+    ).rejects.toThrow("Only course admins can edit topics.");
+    await replaceCourseOutline({
+      courseId,
+      outline: replacement,
+      userId: adminId,
+    });
+
+    course = await getCourseForUser(adminId, courseId);
+    expect(course!.topics.map((topic) => topic.name)).toEqual([
+      "First topic",
+      "Chapter 2",
+    ]);
+    expect(course!.topics[0].subtopics[0].subtopics[0].name).toBe(
+      "First grandchild",
+    );
+    expect(course!.topics[0].subtopics[0].description).toBe(
+      "Grounding context for the child topic.",
+    );
   });
 });

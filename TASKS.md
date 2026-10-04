@@ -167,24 +167,24 @@ Keep the existing minimal visual language and avoid unrelated redesign work.
 
 ### Phase 9B — Course Outline UX
 
-- [ ] Replace the administrative topic cards/forms with a clearly indented visual hierarchy supporting exactly Topic, Subtopic, and Sub-subtopic semantic levels
-- [ ] Add a familiar six-dot/grip drag handle to each outline item
-- [ ] Support manual sibling ordering and persist the resulting positions correctly
-- [ ] Evaluate and implement sensible hierarchy movement only if it remains clear, reliable, and compatible with the existing model
-- [ ] Remove the permanent `Add to course structure` form and parent dropdown
-- [ ] Add an `+ Add topic` action in the Topics and Subtopics header
-- [ ] Let an admin add a child directly from an eligible item's actions; do not offer Add child on level-3 items
-- [ ] Add a three-dot per-item action menu with permission/depth-appropriate Rename, Edit context, Add child/subtopic, and Delete actions
-- [ ] Preserve shared-course authorization: admins edit canonical structure, members view it, and independent-course owners/admins edit it
-- [ ] Add appropriate deletion confirmation, especially when descendants will also be deleted
-- [ ] Use the existing topic description/context field if suitable; do not create redundant context storage
-- [ ] Add a small context editor modal and keep optional context out of the permanently visible outline
-- [ ] Add a bulk outline editor action in the section header that opens a modal with a text representation of the full hierarchy
-- [ ] Parse indentation and bullets into the same underlying three-level topic hierarchy used by the visual editor
-- [ ] Validate malformed outlines and reject hierarchy deeper than three levels with clear feedback
-- [ ] Make destructive full-outline replacement explicit before overwriting existing structure
-- [ ] Apply the same server-side authorization rules to bulk replacement
-- [ ] Add tests for parsing, depth validation, ordering, hierarchy mutations, deletion behavior, and authorization
+- [x] Replace the administrative topic cards/forms with a clearly indented visual hierarchy supporting exactly Topic, Subtopic, and Sub-subtopic semantic levels
+- [x] Add a familiar six-dot/grip drag handle to each outline item
+- [x] Support manual sibling ordering and persist the resulting positions correctly
+- [x] Evaluate and implement sensible hierarchy movement only if it remains clear, reliable, and compatible with the existing model
+- [x] Remove the permanent `Add to course structure` form and parent dropdown
+- [x] Add an `+ Add topic` action in the Topics and Subtopics header
+- [x] Let an admin add a child directly from an eligible item's actions; do not offer Add child on level-3 items
+- [x] Add a three-dot per-item action menu with permission/depth-appropriate Rename, Edit context, Add child/subtopic, and Delete actions
+- [x] Preserve shared-course authorization: admins edit canonical structure, members view it, and independent-course owners/admins edit it
+- [x] Add appropriate deletion confirmation, especially when descendants will also be deleted
+- [x] Use the existing topic description/context field if suitable; do not create redundant context storage
+- [x] Add a small context editor modal and keep optional context out of the permanently visible outline
+- [x] Add a bulk outline editor action in the section header that opens a modal with a text representation of the full hierarchy
+- [x] Parse indentation and bullets into the same underlying three-level topic hierarchy used by the visual editor
+- [x] Validate malformed outlines and reject hierarchy deeper than three levels with clear feedback
+- [x] Make destructive full-outline replacement explicit before overwriting existing structure
+- [x] Apply the same server-side authorization rules to bulk replacement
+- [x] Add tests for parsing, depth validation, ordering, hierarchy mutations, deletion behavior, and authorization
 
 ### Phase 9C — Course Creation UX
 
