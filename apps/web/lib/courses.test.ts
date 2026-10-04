@@ -4,24 +4,9 @@ import {
   calculateProgress,
   isValidJoinCode,
   normalizeJoinCode,
-  parseTopicOutline,
 } from "./courses";
 
 describe("course helpers", () => {
-  it("parses and deduplicates a topic outline", () => {
-    const topics = parseTopicOutline(
-      "Probability > Sample Spaces\nProbability > Bayes' Rule\nprobability > sample spaces\nRandom Variables > PMFs",
-    );
-
-    expect(topics).toEqual([
-      {
-        name: "Probability",
-        subtopics: ["Sample Spaces", "Bayes' Rule"],
-      },
-      { name: "Random Variables", subtopics: ["PMFs"] },
-    ]);
-  });
-
   it("normalizes and validates six-character join codes", () => {
     expect(normalizeJoinCode(" ab2-3cd ")).toBe("AB23CD");
     expect(isValidJoinCode("AB23CD")).toBe(true);

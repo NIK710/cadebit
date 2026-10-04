@@ -49,19 +49,25 @@ export function CourseForm() {
 
       <div className="space-y-2">
         <label className="block text-sm font-medium" htmlFor="topicOutline">
-          Initial topics and subtopics
+          Course outline (optional)
         </label>
+        <p className="text-xs leading-5 text-zinc-600">
+          Paste an outline from your syllabus, course topics, or chapter list.
+          Leave this blank and CadeBit can generate a suggested initial outline
+          from your course materials.
+        </p>
         <textarea
-          className="min-h-36 w-full border border-black bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black"
+          className="min-h-52 w-full border border-black bg-white px-3 py-2 font-mono text-sm leading-6 outline-none focus:ring-2 focus:ring-black"
           id="topicOutline"
+          maxLength={50_000}
           name="topicOutline"
           placeholder={
-            "Probability Foundations > Sample Spaces\nProbability Foundations > Bayes' Rule\nRandom Variables > PMFs"
+            "Chapter 1: Probability Foundations\n  - Sample Spaces\n  - Counting\n  - Conditional Probability\n    - Bayes' Rule\n\nChapter 2: Random Variables\n  - PMFs\n  - CDFs\n  - Expectation"
           }
         />
         <p className="text-xs text-zinc-600">
-          Add one item per line using Topic &gt; Subtopic. You can edit the
-          structure later.
+          Indentation and optional bullets define up to three levels. You can
+          edit the structure later.
         </p>
       </div>
 

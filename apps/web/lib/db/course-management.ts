@@ -11,7 +11,6 @@ import {
 import {
   calculateProgress,
   normalizeJoinCode,
-  parseTopicOutline,
   type CourseDetail,
   type CourseListItem,
   type CourseTopic,
@@ -42,7 +41,7 @@ export type CreateCourseInput = {
   description: string;
   type: "shared" | "independent";
   targetDate: string | null;
-  topicOutline: string;
+  outline: CourseOutlineNode[];
 };
 
 export function generateJoinCode(): string {
@@ -231,6 +230,7 @@ export async function createCourseForUser(
   userId: string,
   input: CreateCourseInput,
 ): Promise<string> {
+  validateCourseOutline(input.outline);
   const attempts = input.type === "shared" ? 5 : 1;
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -262,28 +262,7 @@ export async function createCourseForUser(
           });
         }
 
-        const outline = parseTopicOutline(input.topicOutline);
-        for (const [topicPosition, outlineTopic] of outline.entries()) {
-          const [parent] = await tx
-            .insert(topics)
-            .values({
-              courseId: course.id,
-              name: outlineTopic.name,
-              position: topicPosition,
-            })
-            .returning({ id: topics.id });
-
-          if (outlineTopic.subtopics.length) {
-            await tx.insert(topics).values(
-              outlineTopic.subtopics.map((name, position) => ({
-                courseId: course.id,
-                parentId: parent.id,
-                name,
-                position,
-              })),
-            );
-          }
-        }
+        await insertOutlineNodes(tx, course.id, null, input.outline);
 
         return course.id;
       });
@@ -748,6 +727,26 @@ async function reconcileOutlineNodes(
       .where(
         and(eq(topics.courseId, courseId), inArray(topics.id, removedIds)),
       );
+  }
+}
+
+async function insertOutlineNodes(
+  tx: DatabaseTransaction,
+  courseId: string,
+  parentId: string | null,
+  outline: CourseOutlineNode[],
+): Promise<void> {
+  for (const [position, item] of outline.entries()) {
+    const [inserted] = await tx
+      .insert(topics)
+      .values({
+        courseId,
+        parentId,
+        name: item.name,
+        position,
+      })
+      .returning({ id: topics.id });
+    await insertOutlineNodes(tx, courseId, inserted.id, item.children);
   }
 }
 

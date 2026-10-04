@@ -17,6 +17,7 @@ import {
 } from "../lib/db/course-management";
 import { db, pool } from "../lib/db";
 import { courses, users } from "../lib/db/schema";
+import { parseCourseOutline } from "../lib/course-outline";
 
 const testId = crypto.randomUUID();
 const adminId = `phase3-admin-${testId}`;
@@ -50,7 +51,7 @@ describe("database-backed course management", () => {
       description: "Permission and learning-state coverage.",
       type: "shared",
       targetDate: "2026-12-01",
-      topicOutline: "Foundations > Definitions",
+      outline: parseCourseOutline("Foundations\n  - Definitions"),
     });
 
     const adminCourse = await getCourseForUser(adminId, courseId);
@@ -121,12 +122,51 @@ describe("database-backed course management", () => {
       description: "Only the owner can access this course.",
       type: "independent",
       targetDate: null,
-      topicOutline: "Private topic",
+      outline: [{ name: "Private topic", children: [] }],
     });
 
     const ownerCourse = await getCourseForUser(adminId, courseId);
     expect(ownerCourse?.joinCode).toBeNull();
     expect(await getCourseForUser(memberId, courseId)).toBeNull();
+  });
+
+  it("creates courses with natural three-level outlines or no outline", async () => {
+    const outlinedCourseId = await createCourseForUser(adminId, {
+      name: "Natural Outline Course",
+      description: "Creation-time outline persistence coverage.",
+      type: "independent",
+      targetDate: null,
+      outline: parseCourseOutline(
+        "Chapter 1: Probability Foundations\n  - Sample Spaces\n  - Conditional Probability\n    - Bayes' Rule\n\nChapter 2: Random Variables\n  - PMFs\n  - Expectation",
+      ),
+    });
+
+    const outlinedCourse = await getCourseForUser(adminId, outlinedCourseId);
+    expect(outlinedCourse?.topics.map((topic) => topic.name)).toEqual([
+      "Chapter 1: Probability Foundations",
+      "Chapter 2: Random Variables",
+    ]);
+    expect(
+      outlinedCourse?.topics[0].subtopics.map((topic) => topic.name),
+    ).toEqual(["Sample Spaces", "Conditional Probability"]);
+    expect(
+      outlinedCourse?.topics[0].subtopics[1].subtopics.map(
+        (topic) => topic.name,
+      ),
+    ).toEqual(["Bayes' Rule"]);
+    expect(
+      outlinedCourse?.topics[1].subtopics.map((topic) => topic.name),
+    ).toEqual(["PMFs", "Expectation"]);
+
+    const blankCourseId = await createCourseForUser(adminId, {
+      name: "Blank Outline Course",
+      description: "An outline can be added later.",
+      type: "independent",
+      targetDate: null,
+      outline: parseCourseOutline("\n\n"),
+    });
+    const blankCourse = await getCourseForUser(adminId, blankCourseId);
+    expect(blankCourse?.topics).toEqual([]);
   });
 
   it("persists a three-level ordered outline and protects every mutation", async () => {
@@ -135,7 +175,7 @@ describe("database-backed course management", () => {
       description: "Three-level hierarchy coverage.",
       type: "independent",
       targetDate: null,
-      topicOutline: "First topic\nSecond topic",
+      outline: parseCourseOutline("First topic\nSecond topic"),
     });
     let course = await getCourseForUser(adminId, courseId);
     const firstTopic = course!.topics[0];

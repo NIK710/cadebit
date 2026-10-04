@@ -1,10 +1,5 @@
 export const JOIN_CODE_PATTERN = /^[A-HJ-NP-Z2-9]{6}$/;
 
-export type TopicOutline = {
-  name: string;
-  subtopics: string[];
-};
-
 export type CourseListItem = {
   id: string;
   name: string;
@@ -39,32 +34,6 @@ export function normalizeJoinCode(value: string): string {
 
 export function isValidJoinCode(value: string): boolean {
   return JOIN_CODE_PATTERN.test(normalizeJoinCode(value));
-}
-
-export function parseTopicOutline(outline: string): TopicOutline[] {
-  const topics = new Map<string, TopicOutline>();
-
-  for (const line of outline.split("\n")) {
-    const [rawTopic, rawSubtopic] = line.split(">", 2);
-    const topicName = rawTopic?.trim();
-    const subtopicName = rawSubtopic?.trim();
-    if (!topicName) continue;
-
-    const key = topicName.toLocaleLowerCase();
-    const topic = topics.get(key) ?? { name: topicName, subtopics: [] };
-    if (
-      subtopicName &&
-      !topic.subtopics.some(
-        (candidate) =>
-          candidate.toLocaleLowerCase() === subtopicName.toLocaleLowerCase(),
-      )
-    ) {
-      topic.subtopics.push(subtopicName);
-    }
-    topics.set(key, topic);
-  }
-
-  return [...topics.values()];
 }
 
 export function calculateProgress(completed: number, total: number): number {

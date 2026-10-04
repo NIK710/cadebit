@@ -188,15 +188,15 @@ Keep the existing minimal visual language and avoid unrelated redesign work.
 
 ### Phase 9C — Course Creation UX
 
-- [ ] Keep the existing course creation flow and replace only the initial topic/subtopic input experience
-- [ ] Rename the field conceptually to `Course outline (optional)` and explain that users can paste a syllabus/course/chapter outline or leave it blank
-- [ ] Accept natural indented/bulleted outlines instead of requiring `Topic > Subtopic` syntax
-- [ ] Reuse the same parsing and hierarchy domain logic as the bulk outline editor
-- [ ] Continue allowing course creation with no manually supplied outline
-- [ ] Document a clean later path for generating a suggested editable outline from useful processed course material
-- [ ] Do not present an LLM-generated outline as an official course structure when no authoritative material supports it
-- [ ] Do not overbuild material-driven outline generation into course creation before the ingestion lifecycle supports it cleanly
-- [ ] Add tests covering blank outlines, natural outline parsing, validation, and three-level persistence
+- [x] Keep the existing course creation flow and replace only the initial topic/subtopic input experience
+- [x] Rename the field conceptually to `Course outline (optional)` and explain that users can paste a syllabus/course/chapter outline or leave it blank
+- [x] Accept natural indented/bulleted outlines instead of requiring `Topic > Subtopic` syntax
+- [x] Reuse the same parsing and hierarchy domain logic as the bulk outline editor
+- [x] Continue allowing course creation with no manually supplied outline
+- [x] Document a clean later path for generating a suggested editable outline from useful processed course material
+- [x] Do not present an LLM-generated outline as an official course structure when no authoritative material supports it
+- [x] Do not overbuild material-driven outline generation into course creation before the ingestion lifecycle supports it cleanly
+- [x] Add tests covering blank outlines, natural outline parsing, validation, and three-level persistence
 
 ### Phase 9D — Adaptive Micro-Lessons
 

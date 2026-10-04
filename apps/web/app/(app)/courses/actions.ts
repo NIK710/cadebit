@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { isValidJoinCode, type CourseTopic } from "@/lib/courses";
-import { CourseOutlineError, parseCourseOutline } from "@/lib/course-outline";
+import {
+  CourseOutlineError,
+  parseCourseOutline,
+  type CourseOutlineNode,
+} from "@/lib/course-outline";
 import {
   AiServiceError,
   generateCourseContent,
@@ -54,7 +58,7 @@ export async function createCourseAction(
   const description = textValue(formData, "description");
   const type = textValue(formData, "type");
   const targetDate = optionalDate(formData, "targetDate");
-  const topicOutline = textValue(formData, "topicOutline");
+  const outlineText = rawTextValue(formData, "topicOutline");
 
   if (name.length < 2 || name.length > 120) {
     return { error: "Course name must contain 2 to 120 characters." };
@@ -66,6 +70,17 @@ export async function createCourseAction(
     return { error: "Choose a valid course type." };
   }
   if (targetDate === undefined) return { error: "Enter a valid target date." };
+  if (outlineText.length > 50_000) {
+    return { error: "Course outline must contain at most 50,000 characters." };
+  }
+
+  let outline: CourseOutlineNode[];
+  try {
+    outline = parseCourseOutline(outlineText);
+  } catch (error) {
+    if (error instanceof CourseOutlineError) return { error: error.message };
+    throw error;
+  }
 
   let courseId: string;
   try {
@@ -74,7 +89,7 @@ export async function createCourseAction(
       description,
       type,
       targetDate,
-      topicOutline,
+      outline,
     });
   } catch (error) {
     return actionError(error);

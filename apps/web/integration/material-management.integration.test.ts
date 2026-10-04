@@ -54,14 +54,14 @@ describe("course material authorization", () => {
       description: "Cross-course isolation A",
       type: "shared",
       targetDate: null,
-      topicOutline: "Topic A",
+      outline: [{ name: "Topic A", children: [] }],
     });
     const secondCourseId = await createCourseForUser(adminId, {
       name: "Second material course",
       description: "Cross-course isolation B",
       type: "independent",
       targetDate: null,
-      topicOutline: "Topic B",
+      outline: [{ name: "Topic B", children: [] }],
     });
     const [firstCourse] = await db
       .select({ joinCode: courses.joinCode })

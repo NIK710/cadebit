@@ -189,7 +189,11 @@ Course creation and the bulk editor should share one parser for natural
 indented/bulleted outlines, including validation of the three-level limit.
 Creating a course without an outline remains valid. A future material-derived
 outline must be presented as an editable suggestion unless authoritative
-course material supports treating it as canonical.
+course material supports treating it as canonical. The clean implementation
+path is to create the course first, ingest and process its material, generate a
+suggestion from the authorized processed corpus, and let an admin review and
+confirm it through the existing outline editor rather than blocking course
+creation on document processing.
 
 ### Independent Course
 

@@ -52,7 +52,7 @@ describe("adaptive study persistence", () => {
       description: "Phase 7 persistence coverage.",
       type: "independent",
       targetDate: "2026-09-20",
-      topicOutline: "Closures",
+      outline: [{ name: "Closures", children: [] }],
     });
     const course = await getCourseForUser(ownerId, courseId);
     const topicId = course!.topics[0].id;

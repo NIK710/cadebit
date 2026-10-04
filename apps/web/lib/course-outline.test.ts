@@ -63,7 +63,7 @@ Chapter 2: Random Variables
     expect(() => parseCourseOutline(outline)).toThrowError(new RegExp(message));
   });
 
-  it("accepts an empty outline for an explicitly confirmed clear operation", () => {
+  it("accepts an empty outline for course creation and confirmed clearing", () => {
     expect(parseCourseOutline("\n\n")).toEqual([]);
   });
 
