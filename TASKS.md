@@ -236,16 +236,16 @@ Keep the existing minimal visual language and avoid unrelated redesign work.
 
 ### Phase 9 Cross-Cutting Requirements
 
-- [ ] Keep the primary course page focused on learning and progress; place infrequent management actions behind small, obvious modal/drawer actions
-- [ ] Preserve shared versus independent course semantics, server-side authorization, per-user schedules, and system-mastery/self-confidence separation
-- [ ] Reuse existing material ingestion, RAG, source metadata, assessment evidence, and mastery capabilities instead of rebuilding them
-- [ ] Keep API contracts typed and validated across Next.js/TypeScript and FastAPI/Pydantic
-- [ ] Preserve detailed operational errors in logs while returning concise, safe student-facing messages
-- [ ] Update tests whenever behavior, persistence, permissions, or service contracts change
-- [ ] Avoid new dependencies, distributed/background architecture, and agent complexity without a clear product need
-- [ ] Preserve the minimal white/black/gray visual language and do not redesign unrelated application areas
-- [ ] Do not expose backend/provider concepts in the student UI when CadeBit can infer or manage them
-- [ ] Continue deferring browser extension, mobile, push notification, and email-delivery work
+- [x] Keep the primary course page focused on learning and progress; place infrequent management actions behind small, obvious modal/drawer actions
+- [x] Preserve shared versus independent course semantics, server-side authorization, per-user schedules, and system-mastery/self-confidence separation
+- [x] Reuse existing material ingestion, RAG, source metadata, assessment evidence, and mastery capabilities instead of rebuilding them
+- [x] Keep API contracts typed and validated across Next.js/TypeScript and FastAPI/Pydantic
+- [x] Preserve detailed operational errors in logs while returning concise, safe student-facing messages
+- [x] Update tests whenever behavior, persistence, permissions, or service contracts change
+- [x] Avoid new dependencies, distributed/background architecture, and agent complexity without a clear product need
+- [x] Preserve the minimal white/black/gray visual language and do not redesign unrelated application areas
+- [x] Do not expose backend/provider concepts in the student UI when CadeBit can infer or manage them
+- [x] Continue deferring browser extension, mobile, push notification, and email-delivery work
 
 ## Phase 10 — Product / Reliability
 

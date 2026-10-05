@@ -450,7 +450,16 @@ export async function generateCourseAiAction(
     });
     return { result };
   } catch (error) {
-    if (error instanceof AiServiceError) return { error: error.message };
+    if (error instanceof AiServiceError) {
+      console.error("Legacy course AI request failed", {
+        code: error.code,
+        status: error.status,
+        requestId: error.requestId,
+      });
+      return {
+        error: "The AI request could not be completed. Please try again.",
+      };
+    }
     console.error("Course AI action failed", error);
     return {
       error: "The AI request could not be completed. Please try again.",
