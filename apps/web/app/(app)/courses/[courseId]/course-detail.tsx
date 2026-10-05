@@ -15,6 +15,7 @@ import {
   type CourseDetail as CourseDetailData,
 } from "@/lib/courses";
 import type { CourseMaterialSummary } from "@/lib/db/material-management";
+import type { CourseAiConversationView } from "@/lib/db/course-ai";
 
 import {
   deleteCourseMaterialAction,
@@ -23,18 +24,22 @@ import {
   type CourseActionState,
 } from "../actions";
 import { CourseOutline } from "./course-outline";
+import { CourseAiChat } from "./course-ai-chat";
 import { Modal } from "./modal";
 
 export function CourseDetail({
   course,
+  courseAiConversation,
   materials,
 }: {
   course: CourseDetailData;
+  courseAiConversation: CourseAiConversationView;
   materials: CourseMaterialSummary[];
 }) {
   const isAdmin = course.role === "admin";
   const [targetDateOpen, setTargetDateOpen] = useState(false);
   const [materialsOpen, setMaterialsOpen] = useState(false);
+  const [courseAiOpen, setCourseAiOpen] = useState(false);
 
   return (
     <div className="space-y-8">
@@ -51,13 +56,22 @@ export function CourseDetail({
             <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-600">
               {course.description || "No description yet."}
             </p>
-            <button
-              className="mt-4 border border-black px-3 py-2 text-sm hover:bg-zinc-100"
-              onClick={() => setMaterialsOpen(true)}
-              type="button"
-            >
-              Course materials
-            </button>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                className="border border-black px-3 py-2 text-sm hover:bg-zinc-100"
+                onClick={() => setMaterialsOpen(true)}
+                type="button"
+              >
+                Course materials
+              </button>
+              <button
+                className="border border-black px-3 py-2 text-sm hover:bg-zinc-100"
+                onClick={() => setCourseAiOpen(true)}
+                type="button"
+              >
+                CadeBit AI
+              </button>
+            </div>
           </div>
           <div className="border border-black px-4 py-3 text-right">
             <p className="text-xs uppercase tracking-wide text-zinc-600">
@@ -130,6 +144,13 @@ export function CourseDetail({
           onClose={() => setMaterialsOpen(false)}
         />
       ) : null}
+      <CourseAiChat
+        courseId={course.id}
+        courseName={course.name}
+        initialView={courseAiConversation}
+        onClose={() => setCourseAiOpen(false)}
+        open={courseAiOpen}
+      />
     </div>
   );
 }

@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import asyncpg
+from app.chat import CHAT_PROMPT_VERSION
 from app.config import get_settings
 from app.lesson import MICRO_LESSON_PROMPT_VERSION
 from app.openai_client import GenerationClientError, OpenAIGenerationClient
@@ -185,6 +186,7 @@ async def run(args: argparse.Namespace) -> tuple[dict, Path]:
             "practice_question": QUESTION_PROMPT_VERSION,
             "practice_grading": GRADING_PROMPT_VERSION,
             "micro_lesson": MICRO_LESSON_PROMPT_VERSION,
+            "course_chat": CHAT_PROMPT_VERSION,
             "evaluation_judge": JUDGE_PROMPT_VERSION,
         },
         "thresholds": config.thresholds.model_dump(),

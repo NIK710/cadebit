@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  generateCourseChatResponse,
   AiServiceError,
   generateCourseContent,
   generateMicroLesson,
@@ -14,6 +15,92 @@ const request = {
   task: "answer" as const,
   input: "What is a closure?",
 };
+
+describe("generateCourseChatResponse", () => {
+  it("sends trusted history and parses grounding metadata", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        request_id: "chat-request-1",
+        response_id: "chat-response-1",
+        content: "The inactive threads wait while the other path runs [1].",
+        grounding_status: "grounded",
+        sources: [
+          {
+            material_id: "86a9168a-6a1d-4d63-b77f-f1582fe67346",
+            material_title: "CUDA Notes",
+            chunk_id: null,
+            page_number: 7,
+            section: "Warp divergence",
+            excerpt: "Divergent paths execute serially.",
+          },
+        ],
+        model: "gpt-5.6-luna",
+        prompt_version: "course-chat-v1",
+        usage: null,
+      }),
+    );
+    const history = [
+      { role: "user" as const, content: "Why does divergence matter?" },
+      { role: "assistant" as const, content: "Warp paths serialize." },
+    ];
+
+    const result = await generateCourseChatResponse(
+      {
+        userId: request.userId,
+        courseId: request.courseId,
+        message: "So do the other threads wait?",
+        history,
+      },
+      { fetchImplementation, serviceToken: "secret" },
+    );
+
+    expect(result.groundingStatus).toBe("grounded");
+    expect(result.sources[0].materialTitle).toBe("CUDA Notes");
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      expect.stringContaining("/v1/chat/responses"),
+      expect.objectContaining({
+        body: JSON.stringify({
+          user_id: request.userId,
+          course_id: request.courseId,
+          message: "So do the other threads wait?",
+          history,
+        }),
+      }),
+    );
+  });
+
+  it("accepts a deterministic insufficient-grounding response", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json({
+        request_id: "chat-request-2",
+        response_id: null,
+        content: "I couldn't find enough relevant information.",
+        grounding_status: "insufficient",
+        sources: [],
+        model: null,
+        prompt_version: "course-chat-v1",
+        usage: null,
+      }),
+    );
+
+    const result = await generateCourseChatResponse(
+      {
+        userId: request.userId,
+        courseId: request.courseId,
+        message: "An uncovered question",
+        history: [],
+      },
+      { fetchImplementation, serviceToken: "secret" },
+    );
+
+    expect(result).toMatchObject({
+      responseId: null,
+      model: null,
+      groundingStatus: "insufficient",
+      sources: [],
+    });
+  });
+});
 
 describe("generateCourseContent", () => {
   it("sends the internal contract and maps structured source references", async () => {

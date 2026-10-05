@@ -251,6 +251,20 @@ def test_live_generation_stores_per_case_outputs_and_usage():
             sources=[{"material_title": "Notes", "content": "Independence."}],
             expected_facts=["Instruction and assessment"],
         ),
+        GenerationCase(
+            id="chat",
+            dataset_version="v1",
+            kind=GenerationKind.COURSE_CHAT,
+            request="So does the other event still matter?",
+            history=[
+                {"role": "user", "content": "Explain conditional probability."},
+                {"role": "assistant", "content": "It updates a probability."},
+            ],
+            sources=[
+                {"material_title": "Notes", "content": "Conditional probability."}
+            ],
+            expected_facts=["Resolve the follow-up from context"],
+        ),
     ]
     outputs, aggregates, tokens = asyncio.run(
         run_generation_suite(
@@ -261,11 +275,12 @@ def test_live_generation_stores_per_case_outputs_and_usage():
         )
     )
 
-    assert len(outputs) == 3
+    assert len(outputs) == 4
     assert outputs[1]["candidate_output"].startswith("Question:")
     assert aggregates == {
         "grounding_pass_rate": 1,
         "question_quality_mean": 0.9,
+        "chat_quality_mean": 0.9,
         "lesson_coherence_mean": 0.9,
         "instructional_usefulness_mean": 0.85,
         "lesson_question_relevance_mean": 0.9,
@@ -274,7 +289,7 @@ def test_live_generation_stores_per_case_outputs_and_usage():
         "mcq_grading_correctness_mean": 1.0,
         "difficulty_appropriateness_mean": 0.8,
     }
-    assert tokens.total_tokens == 145
+    assert tokens.total_tokens == 190
 
 
 def test_grading_consistency_repeats_and_measures_score_spread():

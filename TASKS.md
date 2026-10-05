@@ -223,16 +223,16 @@ Keep the existing minimal visual language and avoid unrelated redesign work.
 
 ### Phase 9E — CadeBit AI
 
-- [ ] Add a secondary `CadeBit AI` course-header action alongside `Course materials`
-- [ ] Open a course-specific chat modal or drawer rather than a permanent course-page form or site-wide floating bubble
-- [ ] Accept a natural-language student message without task/action selectors
-- [ ] Remove manual topic-scope selection and infer retrieval context from the message and authorized course material
-- [ ] Reuse the existing grounded RAG and source metadata infrastructure
-- [ ] Support follow-up questions with course-scoped conversation context rather than one-shot generation
-- [ ] Surface useful material/page/section source references for grounded answers
-- [ ] Preserve authorization boundaries for every message and retrieval operation
-- [ ] Do not update system mastery from normal CadeBit AI conversation
-- [ ] Add typed conversation/message contracts, persistence only if justified by the approved V1 design, safe error handling, and relevant tests
+- [x] Add a secondary `CadeBit AI` course-header action alongside `Course materials`
+- [x] Open a course-specific chat modal or drawer rather than a permanent course-page form or site-wide floating bubble
+- [x] Accept a natural-language student message without task/action selectors
+- [x] Remove manual topic-scope selection and infer retrieval context from the message and authorized course material
+- [x] Reuse the existing grounded RAG and source metadata infrastructure
+- [x] Support follow-up questions with course-scoped conversation context rather than one-shot generation
+- [x] Surface useful material/page/section source references for grounded answers
+- [x] Preserve authorization boundaries for every message and retrieval operation
+- [x] Do not update system mastery from normal CadeBit AI conversation
+- [x] Add typed conversation/message contracts, persistence only if justified by the approved V1 design, safe error handling, and relevant tests
 
 ### Phase 9 Cross-Cutting Requirements
 

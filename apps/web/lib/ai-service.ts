@@ -37,6 +37,32 @@ export interface GenerateCourseContentResponse {
   usage: TokenUsage | null;
 }
 
+export type ChatRole = "user" | "assistant";
+export type GroundingStatus = "grounded" | "insufficient";
+
+export interface ChatContextMessage {
+  role: ChatRole;
+  content: string;
+}
+
+export interface GenerateCourseChatResponseRequest {
+  userId: string;
+  courseId: string;
+  message: string;
+  history: ChatContextMessage[];
+}
+
+export interface GeneratedCourseChatResponse {
+  requestId: string;
+  responseId: string | null;
+  content: string;
+  groundingStatus: GroundingStatus;
+  sources: SourceReference[];
+  model: string | null;
+  promptVersion: string;
+  usage: TokenUsage | null;
+}
+
 export interface GeneratePracticeQuestionRequest {
   userId: string;
   courseId: string;
@@ -229,6 +255,46 @@ export async function generateCourseContent(
   }
 
   return parseGenerateResponse(payload);
+}
+
+export async function generateCourseChatResponse(
+  request: GenerateCourseChatResponseRequest,
+  options: AiServiceClientOptions = {},
+): Promise<GeneratedCourseChatResponse> {
+  const payload = await postAiService(
+    "/v1/chat/responses",
+    {
+      user_id: request.userId,
+      course_id: request.courseId,
+      message: request.message,
+      history: request.history,
+    },
+    options,
+  );
+  if (
+    !isRecord(payload) ||
+    typeof payload.request_id !== "string" ||
+    !(
+      typeof payload.response_id === "string" || payload.response_id === null
+    ) ||
+    typeof payload.content !== "string" ||
+    !isGroundingStatus(payload.grounding_status) ||
+    !Array.isArray(payload.sources) ||
+    !(typeof payload.model === "string" || payload.model === null) ||
+    typeof payload.prompt_version !== "string"
+  ) {
+    throwInvalidResponse();
+  }
+  return {
+    requestId: payload.request_id,
+    responseId: payload.response_id,
+    content: payload.content,
+    groundingStatus: payload.grounding_status,
+    sources: payload.sources.map(parseSourceReference),
+    model: payload.model,
+    promptVersion: payload.prompt_version,
+    usage: payload.usage === null ? null : parseTokenUsage(payload.usage),
+  };
 }
 
 export async function generatePracticeQuestion(
@@ -501,6 +567,10 @@ function parseSourceReference(value: unknown): SourceReference {
     section: nullableString(value.section),
     excerpt: nullableString(value.excerpt),
   };
+}
+
+function isGroundingStatus(value: unknown): value is GroundingStatus {
+  return value === "grounded" || value === "insufficient";
 }
 
 function parseTokenUsage(value: unknown): TokenUsage {

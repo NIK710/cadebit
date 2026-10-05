@@ -1,6 +1,9 @@
 from uuid import UUID, uuid5
 
+from app.chat import ChatOrchestrator
 from app.contracts import (
+    ChatContextMessage,
+    ChatResponseRequest,
     GenerateRequest,
     GenerationTask,
     MicroLessonRequest,
@@ -74,6 +77,7 @@ async def run_generation_suite(
     outputs: list[dict] = []
     grounding_passes = 0
     question_quality_scores: list[float] = []
+    chat_quality_scores: list[float] = []
     lesson_scores: dict[str, list[float]] = {
         "lesson_coherence_mean": [],
         "instructional_usefulness_mean": [],
@@ -122,7 +126,7 @@ async def run_generation_suite(
             subject_usage = response.usage
             subject_model = response.model
             subject_response_id = response.response_id
-        else:
+        elif case.kind is GenerationKind.MICRO_LESSON:
             response = await MicroLessonOrchestrator(
                 practice_client, grounding
             ).generate(
@@ -135,6 +139,23 @@ async def run_generation_suite(
                 f"eval-{case.id}",
             )
             candidate = response.lesson.model_dump_json(indent=2)
+            subject_usage = response.usage
+            subject_model = response.model
+            subject_response_id = response.response_id
+        else:
+            response = await ChatOrchestrator(generation_client, grounding).respond(
+                ChatResponseRequest(
+                    user_id="evaluation-user",
+                    course_id=uuid5(EVALUATION_NAMESPACE, f"{case.id}:course"),
+                    message=case.request,
+                    history=[
+                        ChatContextMessage(role=message.role, content=message.content)
+                        for message in case.history
+                    ],
+                ),
+                f"eval-{case.id}",
+            )
+            candidate = response.content
             subject_usage = response.usage
             subject_model = response.model
             subject_response_id = response.response_id
@@ -151,6 +172,8 @@ async def run_generation_suite(
         grounding_passes += int(judgment.output.grounding_passed)
         if case.kind is GenerationKind.PRACTICE_QUESTION:
             question_quality_scores.append(judgment.output.quality_score)
+        if case.kind is GenerationKind.COURSE_CHAT:
+            chat_quality_scores.append(judgment.output.quality_score)
         if case.kind is GenerationKind.MICRO_LESSON:
             lesson_scores["lesson_coherence_mean"].append(
                 judgment.output.lesson_coherence_score
@@ -199,6 +222,10 @@ async def run_generation_suite(
             sum(question_quality_scores) / len(question_quality_scores), 6
         ),
     }
+    if chat_quality_scores:
+        aggregates["chat_quality_mean"] = round(
+            sum(chat_quality_scores) / len(chat_quality_scores), 6
+        )
     for metric, scores in lesson_scores.items():
         if scores:
             aggregates[metric] = round(sum(scores) / len(scores), 6)

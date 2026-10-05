@@ -38,6 +38,12 @@ class GenerationKind(StrEnum):
     GROUNDED_ANSWER = "grounded_answer"
     PRACTICE_QUESTION = "practice_question"
     MICRO_LESSON = "micro_lesson"
+    COURSE_CHAT = "course_chat"
+
+
+class EvaluationChatMessage(StrictModel):
+    role: str = Field(pattern=r"^(user|assistant)$")
+    content: str = Field(min_length=1, max_length=12_000)
 
 
 class EvaluationSource(StrictModel):
@@ -55,6 +61,7 @@ class GenerationCase(StrictModel):
     expected_facts: list[str] = Field(min_length=1)
     forbidden_claims: list[str] = Field(default_factory=list)
     difficulty: float = Field(default=0.6, ge=0, le=1)
+    history: list[EvaluationChatMessage] = Field(default_factory=list, max_length=12)
 
 
 class GradingCase(StrictModel):
@@ -82,6 +89,7 @@ class EvaluationThresholds(StrictModel):
     retrieval_mrr: float = Field(ge=0, le=1)
     grounding_pass_rate: float = Field(ge=0, le=1)
     question_quality_mean: float = Field(ge=0, le=1)
+    chat_quality_mean: float = Field(default=0.8, ge=0, le=1)
     lesson_coherence_mean: float = Field(default=0.8, ge=0, le=1)
     instructional_usefulness_mean: float = Field(default=0.8, ge=0, le=1)
     lesson_question_relevance_mean: float = Field(default=0.8, ge=0, le=1)

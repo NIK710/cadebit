@@ -36,6 +36,13 @@
       "when": 1791089730656,
       "tag": "0004_long_khan",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791150364924,
+      "tag": "0005_fearless_jack_murdock",
+      "breakpoints": true
     }
   ]
 }

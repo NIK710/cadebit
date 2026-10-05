@@ -407,6 +407,44 @@ chat interface. It infers intent and retrieval scope from natural language,
 supports follow-up questions, and surfaces source references. Ordinary chat
 messages and reading explanations do not update mastery.
 
+#### Phase 9E course-chat design
+
+`POST /v1/chat/responses` accepts an authorized course, one natural-language
+student message, and a trusted server-loaded recent transcript. CadeBit AI has
+no task, topic-scope, or difficulty selector. It constructs a deterministic
+retrieval query from the current message plus bounded recent context, reuses
+the existing permission-aware course RAG pipeline, and returns a typed response
+with `grounded` or `insufficient` grounding status and existing
+`SourceReference` metadata. It does not use an additional model call to rewrite
+retrieval queries.
+
+V1 persists exactly one conversation per authenticated user and course. The
+complete current conversation survives navigation, reloads, and later login
+sessions, while generation receives only the six most recent completed turns
+(at most twelve messages and a bounded character budget). V1 does not summarize
+older messages. Starting a new conversation requires lightweight confirmation,
+deletes the existing conversation and its cascading messages, and creates a
+fresh conversation; it does not retain hidden archived history. An optimistic
+conversation revision prevents concurrent tabs from appending against stale
+context without holding a database transaction open during model generation.
+
+If retrieval finds relevant authorized material, the assistant answers from
+that material and shows compact per-message material/page/section references.
+Source references are persisted with assistant messages, but internal material
+and chunk IDs and excerpts are not shown in the normal chat UI. If retrieval is
+insufficient, generation is skipped and the assistant transparently says that
+it could not find enough relevant information in the course materials. V1 does
+not silently fall back to unrestricted model knowledge and does not stream
+responses.
+
+The browser talks to CadeBit AI only through authenticated Next.js server
+actions. The server derives the user identity, validates conversation ownership,
+loads trusted history, and calls FastAPI across the existing service-token
+boundary. FastAPI rechecks course authorization, and retrieval remains isolated
+to authorized materials in that course. Chat messages never create assessment
+evidence or update system mastery or self-confidence. CadeBit AI remains a
+separate reactive experience from proactive, graded Phase 9D micro-lessons.
+
 ### Course Management
 
 For admins:

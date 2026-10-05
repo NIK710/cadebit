@@ -7,6 +7,8 @@ import {
   accounts,
   activityEvents,
   assessmentEvidence,
+  courseAiConversations,
+  courseAiMessages,
   courseMaterials,
   courseMemberships,
   courses,
@@ -32,6 +34,8 @@ describe("canonical database schema", () => {
       accounts,
       activityEvents,
       assessmentEvidence,
+      courseAiConversations,
+      courseAiMessages,
       courseMaterials,
       courseMemberships,
       courses,
@@ -51,7 +55,7 @@ describe("canonical database schema", () => {
       verifications,
     ].map(getTableName);
 
-    expect(new Set(tableNames).size).toBe(20);
+    expect(new Set(tableNames).size).toBe(22);
     expect(tableNames).toContain("users");
     expect(tableNames).toContain("course_memberships");
     expect(tableNames).toContain("assessment_evidence");
@@ -60,6 +64,8 @@ describe("canonical database schema", () => {
     expect(tableNames).toContain("material_ingestion_jobs");
     expect(tableNames).toContain("practice_questions");
     expect(tableNames).toContain("user_topic_mastery");
+    expect(tableNames).toContain("course_ai_conversations");
+    expect(tableNames).toContain("course_ai_messages");
   });
 
   it("creates the topics composite unique index before its self-reference", () => {

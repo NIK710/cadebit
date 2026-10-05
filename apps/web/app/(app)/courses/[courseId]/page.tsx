@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { getCourseForUser } from "@/lib/db/course-management";
+import { getCourseAiConversationView } from "@/lib/db/course-ai";
 import { listCourseMaterialsForUser } from "@/lib/db/material-management";
 import { requireSession } from "@/lib/session";
 
@@ -12,10 +13,18 @@ export default async function CoursePage({
   params: Promise<{ courseId: string }>;
 }) {
   const [{ courseId }, session] = await Promise.all([params, requireSession()]);
-  const [course, materials] = await Promise.all([
+  const [course, materials, courseAiConversation] = await Promise.all([
     getCourseForUser(session.userId, courseId),
     listCourseMaterialsForUser(session.userId, courseId),
+    getCourseAiConversationView(session.userId, courseId),
   ]);
   if (!course) notFound();
-  return <CourseDetail course={course} materials={materials} />;
+  if (!courseAiConversation) notFound();
+  return (
+    <CourseDetail
+      course={course}
+      courseAiConversation={courseAiConversation}
+      materials={materials}
+    />
+  );
 }

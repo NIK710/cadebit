@@ -49,6 +49,57 @@ class GenerateResponse(BaseModel):
     usage: TokenUsage | None = None
 
 
+class ChatRole(StrEnum):
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
+class GroundingStatus(StrEnum):
+    GROUNDED = "grounded"
+    INSUFFICIENT = "insufficient"
+
+
+class ChatContextMessage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    role: ChatRole
+    content: str = Field(min_length=1, max_length=12_000)
+
+
+class ChatResponseRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: str = Field(min_length=1, max_length=255)
+    course_id: UUID
+    message: str = Field(min_length=1, max_length=4_000)
+    history: list[ChatContextMessage] = Field(default_factory=list, max_length=12)
+
+    @model_validator(mode="after")
+    def validate_history(self) -> "ChatResponseRequest":
+        if sum(len(message.content) for message in self.history) > 12_000:
+            raise ValueError("Chat history must contain at most 12,000 characters.")
+        if len(self.history) % 2 != 0:
+            raise ValueError("Chat history must contain complete turns.")
+        for index, message in enumerate(self.history):
+            expected = ChatRole.USER if index % 2 == 0 else ChatRole.ASSISTANT
+            if message.role is not expected:
+                raise ValueError("Chat history roles must alternate by complete turn.")
+        return self
+
+
+class ChatResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    request_id: str
+    response_id: str | None
+    content: str = Field(min_length=1, max_length=12_000)
+    grounding_status: GroundingStatus
+    sources: list[SourceReference]
+    model: str | None
+    prompt_version: str
+    usage: TokenUsage | None = None
+
+
 class PracticeQuestionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

@@ -9,6 +9,7 @@ from .authorization import (
     ServiceTokenVerifier,
     UnavailableCourseAuthorizer,
 )
+from .chat import ChatOrchestrator
 from .config import Settings
 from .embeddings import OpenAIEmbeddingClient
 from .lesson import MicroLessonOrchestrator
@@ -26,6 +27,7 @@ class ServiceContainer:
     orchestrator: GenerationOrchestrator
     practice_orchestrator: PracticeOrchestrator | None = None
     lesson_orchestrator: MicroLessonOrchestrator | None = None
+    chat_orchestrator: ChatOrchestrator | None = None
     close_callback: Callable[[], Awaitable[None]] | None = None
 
     async def close(self) -> None:
@@ -107,6 +109,10 @@ async def build_service_container(settings: Settings) -> ServiceContainer:
         ),
         lesson_orchestrator=MicroLessonOrchestrator(
             practice_client,
+            grounding_provider,
+        ),
+        chat_orchestrator=ChatOrchestrator(
+            generation_client,
             grounding_provider,
         ),
         close_callback=close,
